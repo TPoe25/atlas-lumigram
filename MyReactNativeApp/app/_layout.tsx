@@ -1,15 +1,16 @@
-// app/_layout.tsx
-import React from "react";
+import { Stack } from "expo-router";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { PostsProvider } from "../src/PostsContext";
-import { Stack } from "expo-router";
+import { ProfileProvider } from "../src/ProfileContext";
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <PostsProvider>
-        <Stack />
-      </PostsProvider>
+      <ProfileProvider>
+        <PostsProvider>
+          <Stack screenOptions={{ headerTitleAlign: "center" }} />
+        </PostsProvider>
+      </ProfileProvider>
     </GestureHandlerRootView>
   );
 }
