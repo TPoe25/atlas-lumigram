@@ -1,80 +1,36 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { FlashList } from "@shopify/flash-list";
-import { router, useFocusEffect } from "expo-router";
+import { FeedCard } from "../../src/FeedCard";
+import { usePosts } from "../../src/PostsContext";
 
-import { initDb, getUsers, deleteUser, User } from "../../src/db";
-import { UserRow } from "../../src/UserRow";
-
-export default function UsersHome() {
-  const [users, setUsers] = useState<User[]>([]);
-
-  useEffect(() => {
-    initDb();
-    setUsers(getUsers());
-  }, []);
-
-  useFocusEffect(
-    React.useCallback(() => {
-      setUsers(getUsers());
-    }, [])
-  );
+export default function HomeTab() {
+  const { posts } = usePosts();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.h1}>Workout Tracker</Text>
+    <View style={styles.page}>
+      <Text style={styles.h1}>Home</Text>
 
-      <Pressable
-        style={styles.primaryBtn}
-        onPress={() => router.push("/add-user")}
-      >
-        <Text style={styles.primaryText}>Add user</Text>
-      </Pressable>
-
-      <View style={{ flex: 1, marginTop: 14 }}>
-        <FlashList
-          data={users}
-          keyExtractor={(u) => String(u.id)}
-          renderItem={({ item }) => (
-            <UserRow
-              user={item}
-              onPress={() => router.push(`/user/${item.id}`)}
-              onDelete={() => {
-                deleteUser(item.id);
-                setUsers(getUsers());
-              }}
-            />
-          )}
-          ListEmptyComponent={
-            <Text style={styles.empty}>
-              No users yet. Add your first athlete 👇
-            </Text>
-          }
-        />
-      </View>
+      <FlashList
+        data={posts}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item }) => (
+          <FeedCard imageUrl={item.imageUrl} caption={item.caption} />
+        )}
+        contentContainerStyle={styles.listContent}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    paddingTop: 50,
-    backgroundColor: "#F3F4F6",
-  },
+  page: { flex: 1, backgroundColor: "#F3F4F6" },
   h1: {
     fontSize: 28,
     fontWeight: "900",
-    marginBottom: 14,
-    color: "#111827",
+    color: "#0F172A",
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 12,
   },
-  primaryBtn: {
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    backgroundColor: "#111827",
-  },
-  primaryText: { color: "white", fontWeight: "900" },
-  empty: { marginTop: 18, opacity: 0.7, color: "#111827" },
+  listContent: { paddingHorizontal: 16, paddingBottom: 16 },
 });

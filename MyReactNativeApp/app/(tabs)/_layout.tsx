@@ -1,6 +1,7 @@
 import { Tabs, router } from "expo-router";
 import { Pressable, Text } from "react-native";
 
+
 export default function TabsLayout() {
   return (
     <Tabs
