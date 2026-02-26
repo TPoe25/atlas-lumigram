@@ -1,10 +1,11 @@
+// app/(tabs)/home.tsx
 import { View, Text, StyleSheet } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { FeedCard } from "../../src/FeedCard";
 import { usePosts } from "../../src/PostsContext";
 
 export default function HomeTab() {
-  const { posts } = usePosts();
+  const { posts, toggleFavorite, isFavorite } = usePosts();
 
   return (
     <View style={styles.page}>
@@ -14,7 +15,12 @@ export default function HomeTab() {
         data={posts}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (
-          <FeedCard imageUrl={item.imageUrl} caption={item.caption} />
+          <FeedCard
+            imageUrl={item.imageUrl}
+            caption={item.caption}
+            favorited={isFavorite(item.id)}
+            onDoubleTap={() => toggleFavorite(item.id)}
+          />
         )}
         contentContainerStyle={styles.listContent}
       />

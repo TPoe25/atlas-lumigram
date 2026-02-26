@@ -7,6 +7,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerTitleAlign: "center",
+        tabBarActiveTintColor: "#0F172A",
+        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarLabelStyle: {
+          fontWeight: "700",
+        },
         headerRight: () => (
           <Pressable
             onPress={() => router.replace("/(auth)/login")}

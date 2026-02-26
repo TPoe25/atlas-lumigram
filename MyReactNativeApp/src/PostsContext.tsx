@@ -6,17 +6,34 @@ import { INITIAL_POSTS } from "./posts";
 type PostsCtx = {
   posts: Post[];
   addPost: (p: Omit<Post, "id" | "createdAt">) => void;
+
+  favorites: string[];               // post ids
+  isFavorite: (postId: string) => boolean;
+  toggleFavorite: (postId: string) => void;
+
+  favoritePosts: Post[];             // derived list
 };
 
 const Ctx = createContext<PostsCtx | null>(null);
 
 export function PostsProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
+  const [favorites, setFavorites] = useState<string[]>([]);
 
-  const value = useMemo(
-    () => ({
+  const value = useMemo<PostsCtx>(() => {
+    const isFavorite = (postId: string) => favorites.includes(postId);
+
+    const toggleFavorite = (postId: string) => {
+      setFavorites((prev) =>
+        prev.includes(postId) ? prev.filter((id) => id !== postId) : [postId, ...prev]
+      );
+    };
+
+    const favoritePosts = posts.filter((p) => favorites.includes(p.id));
+
+    return {
       posts,
-      addPost: (p: Omit<Post, "id" | "createdAt">) => {
+      addPost: (p) => {
         const newPost: Post = {
           id: String(Date.now()),
           createdAt: new Date().toISOString(),
@@ -24,9 +41,13 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
         };
         setPosts((prev) => [newPost, ...prev]);
       },
-    }),
-    [posts]
-  );
+
+      favorites,
+      isFavorite,
+      toggleFavorite,
+      favoritePosts,
+    };
+  }, [posts, favorites]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

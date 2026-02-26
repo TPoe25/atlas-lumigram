@@ -1,120 +1,151 @@
 import { useState } from "react";
-import { View, Text, Pressable, TextInput, StyleSheet, Image, Alert } from "react-native";
+import {
+    View,
+    Text,
+    Pressable,
+    TextInput,
+    StyleSheet,
+    Image,
+    Alert,
+    Keyboard,
+    Platform,
+    KeyboardAvoidingView,
+    ScrollView,
+} from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { usePosts } from "../../src/PostsContext";
 
 export default function AddPostTab() {
-  const { addPost } = usePosts();
+    const { addPost } = usePosts();
 
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [caption, setCaption] = useState("");
+    const [imageUri, setImageUri] = useState<string | null>(null);
+    const [caption, setCaption] = useState("");
 
-  async function pickImage() {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert("Permission needed", "Please allow access to your photo library.");
-      return;
+    async function pickImage() {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+            Alert.alert("Permission needed", "Please allow access to your photo library.");
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.85,
+        });
+
+        if (result.canceled) return;
+        setImageUri(result.assets[0].uri);
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.85,
-    });
+    function handleAddPost() {
+        if (!imageUri) {
+            Alert.alert("Missing image", "Pick an image first.");
+            return;
+        }
 
-    if (result.canceled) return;
+        addPost({
+            imageUrl: imageUri,
+            caption: caption.trim(),
+        });
 
-    setImageUri(result.assets[0].uri);
-  }
+        setImageUri(null);
+        setCaption("");
+        Keyboard.dismiss();
 
-  function handleAddPost() {
-    if (!imageUri) {
-      Alert.alert("Missing image", "Pick an image first.");
-      return;
+        Alert.alert("Posted!", "Your post was added.");
     }
 
-    addPost({
-      imageUrl: imageUri, // local URI is fine for now (later: Firebase Storage)
-      caption: caption.trim(),
-    });
+    return (
+        <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
+            <KeyboardAvoidingView
+                style={{ flex: 1, backgroundColor: "#F3F4F6" }}
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
+            >
+                <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.h1}>Add Post</Text>
 
-    // reset form
-    setImageUri(null);
-    setCaption("");
-    Alert.alert("Posted!", "Your post was added.");
-  }
+                    <Pressable style={styles.pickBtn} onPress={pickImage}>
+                        <Text style={styles.pickText}>{imageUri ? "Change Image" : "Select Image"}</Text>
+                    </Pressable>
 
-  return (
-    <View style={styles.page}>
-      <Text style={styles.h1}>Add Post</Text>
+                    {imageUri ? (
+                        <Image source={{ uri: imageUri }} style={styles.preview} />
+                    ) : (
+                        <View style={styles.previewPlaceholder}>
+                            <Text style={{ opacity: 0.6 }}>No image selected</Text>
+                        </View>
+                    )}
 
-      <Pressable style={styles.pickBtn} onPress={pickImage}>
-        <Text style={styles.pickText}>{imageUri ? "Change Image" : "Select Image"}</Text>
-      </Pressable>
+                    <TextInput
+                        placeholder="Write a caption..."
+                        value={caption}
+                        onChangeText={setCaption}
+                        style={styles.input}
+                        multiline
+                        blurOnSubmit
+                        returnKeyType="done"
+                        onSubmitEditing={Keyboard.dismiss}
+                    />
 
-      {imageUri ? (
-        <Image source={{ uri: imageUri }} style={styles.preview} />
-      ) : (
-        <View style={styles.previewPlaceholder}>
-          <Text style={{ opacity: 0.6 }}>No image selected</Text>
-        </View>
-      )}
+                    <Pressable style={styles.postBtn} onPress={handleAddPost}>
+                        <Text style={styles.postText}>Add Post</Text>
+                    </Pressable>
 
-      <TextInput
-        placeholder="Write a caption..."
-        value={caption}
-        onChangeText={setCaption}
-        style={styles.input}
-        multiline
-      />
-
-      <Pressable style={styles.postBtn} onPress={handleAddPost}>
-        <Text style={styles.postText}>Add Post</Text>
-      </Pressable>
-    </View>
-  );
+                    <View style={{ height: 24 }} />
+                </ScrollView>
+            </KeyboardAvoidingView>
+        </Pressable>
+    );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, padding: 16, paddingTop: 18, backgroundColor: "#F3F4F6", gap: 14 },
-  h1: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
+    page: {
+        flexGrow: 1,
+        padding: 16,
+        paddingTop: 18,
+        backgroundColor: "#F3F4F6",
+        gap: 14,
+    },
+    h1: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
 
-  pickBtn: {
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  pickText: { fontWeight: "900", color: "#0F172A" },
+    pickBtn: {
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        paddingVertical: 14,
+        alignItems: "center",
+    },
+    pickText: { fontWeight: "900", color: "#0F172A" },
 
-  preview: { width: "100%", height: 320, borderRadius: 18, backgroundColor: "#E5E7EB" },
-  previewPlaceholder: {
-    width: "100%",
-    height: 320,
-    borderRadius: 18,
-    backgroundColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
+    preview: { width: "100%", height: 320, borderRadius: 18, backgroundColor: "#E5E7EB" },
+    previewPlaceholder: {
+        width: "100%",
+        height: 320,
+        borderRadius: 18,
+        backgroundColor: "#E5E7EB",
+        alignItems: "center",
+        justifyContent: "center",
+    },
 
-  input: {
-    backgroundColor: "white",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 90,
-    textAlignVertical: "top",
-  },
+    input: {
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        minHeight: 90,
+        textAlignVertical: "top",
+    },
 
-  postBtn: {
-    backgroundColor: "#0F172A",
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: "center",
-  },
-  postText: { color: "white", fontWeight: "900", fontSize: 16 },
+    postBtn: {
+        backgroundColor: "#0F172A",
+        borderRadius: 18,
+        paddingVertical: 16,
+        alignItems: "center",
+    },
+    postText: { color: "white", fontWeight: "900", fontSize: 16 },
 });

@@ -1,117 +1,107 @@
-import { useState } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
-import { Image } from "expo-image";
-import {
-  Gesture,
-  GestureDetector,
-} from "react-native-gesture-handler";
+// src/FeedCard.tsx
+import { useMemo, useState } from "react";
+import { View, Text, StyleSheet, Image } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 type Props = {
-  imageUrl: string;
-  caption: string;
+    imageUrl: string;
+    caption: string;
+
+    // NEW:
+    onDoubleTap?: () => void;
+    favorited?: boolean;
 };
 
-export function FeedCard({ imageUrl, caption }: Props) {
-  const [showCaption, setShowCaption] = useState(false);
+export function FeedCard({ imageUrl, caption, onDoubleTap, favorited }: Props) {
+    const [showCaption, setShowCaption] = useState(false);
 
-  const longPress = Gesture.LongPress()
-    .minDuration(350)
-    .onStart(() => {
-      setShowCaption(true);
-    })
-    .onFinalize(() => {
-      setShowCaption(false);
-    })
-    .runOnJS(true);
+    const longPress = useMemo(
+        () =>
+            Gesture.LongPress()
+                .minDuration(250)
+                .runOnJS(true)
+                .onStart(() => setShowCaption(true))
+                .onEnd(() => setShowCaption(false)),
+        []
+    );
 
-  const doubleTap = Gesture.Tap()
-    .numberOfTaps(2)
-    .maxDuration(250)
-    .onEnd(() => {
-      Alert.alert("Favorited ⭐️", "Double tap detected");
-    })
-    .runOnJS(true);
+    const doubleTap = useMemo(
+        () =>
+            Gesture.Tap()
+                .numberOfTaps(2)
+                .maxDelay(250)
+                .runOnJS(true)
+                .onEnd(() => {
+                    onDoubleTap?.();
+                }),
+        [onDoubleTap]
+    );
 
-  const composed = Gesture.Exclusive(doubleTap, longPress);
+    const gesture = useMemo(
+        () => Gesture.Simultaneous(doubleTap, longPress),
+        [doubleTap, longPress]
+    );
 
-  return (
-    <GestureDetector gesture={composed}>
-      <View style={styles.card}>
-        <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: imageUrl }}
-            style={styles.image}
-            contentFit="cover"
-          />
+    return (
+        <GestureDetector gesture={gesture}>
+            <View style={styles.card}>
+                <View style={styles.imageWrap}>
+                    <Image source={{ uri: imageUrl }} style={styles.image} />
 
-          {showCaption && (
-            <View style={styles.overlay}>
-              <Text style={styles.overlayText}>{caption}</Text>
+                    {favorited ? (
+                        <View style={styles.favBadge}>
+                            <Text style={styles.favBadgeText}>★ Favorite</Text>
+                        </View>
+                    ) : null}
+
+                    {showCaption ? (
+                        <View style={styles.captionOverlay}>
+                            <Text style={styles.captionText} numberOfLines={2}>
+                                {caption || "Caption (placeholder)"}
+                            </Text>
+                        </View>
+                    ) : null}
+                </View>
             </View>
-          )}
-        </View>
-
-        {/* Default caption below image */}
-        <View style={styles.captionContainer}>
-          <Text style={styles.captionText} numberOfLines={2}>
-            {caption}
-          </Text>
-        </View>
-      </View>
-    </GestureDetector>
-  );
+        </GestureDetector>
+    );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    marginBottom: 18,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    card: {
+        borderRadius: 16,
+        overflow: "hidden",
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        marginBottom: 14,
+    },
+    imageWrap: {
+        width: "100%",
+        aspectRatio: 1,
+        backgroundColor: "#F3F4F6",
+    },
+    image: { width: "100%", height: "100%" },
 
-    // subtle shadow
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
-  },
+    favBadge: {
+        position: "absolute",
+        top: 10,
+        left: 10,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 999,
+        backgroundColor: "rgba(0,0,0,0.65)",
+    },
+    favBadgeText: { color: "white", fontWeight: "900", fontSize: 12 },
 
-  imageWrapper: {
-    position: "relative",
-  },
-
-  image: {
-    width: "100%",
-    height: 360,
-  },
-
-  overlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(15,23,42,0.75)",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-
-  overlayText: {
-    color: "white",
-    fontWeight: "800",
-    fontSize: 14,
-  },
-
-  captionContainer: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-
-  captionText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
+    captionOverlay: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        backgroundColor: "rgba(0,0,0,0.55)",
+    },
+    captionText: { color: "white", fontWeight: "800" },
 });
