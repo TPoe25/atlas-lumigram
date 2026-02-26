@@ -1,53 +1,46 @@
-// src/PostsContext.tsx
 import React, { createContext, useContext, useMemo, useState } from "react";
 import type { Post } from "./posts";
 import { INITIAL_POSTS } from "./posts";
 
 type PostsCtx = {
   posts: Post[];
-  addPost: (p: Omit<Post, "id" | "createdAt">) => void;
-
-  favorites: string[];               // post ids
-  isFavorite: (postId: string) => boolean;
+  favoritePosts: Post[];
+  addPost: (p: Omit<Post, "id" | "createdAt" | "favorited">) => void;
   toggleFavorite: (postId: string) => void;
-
-  favoritePosts: Post[];             // derived list
+  isFavorite: (postId: string) => boolean;
 };
 
 const Ctx = createContext<PostsCtx | null>(null);
 
 export function PostsProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [favorites, setFavorites] = useState<string[]>([]);
 
   const value = useMemo<PostsCtx>(() => {
-    const isFavorite = (postId: string) => favorites.includes(postId);
+    const isFavorite = (postId: string) =>
+      posts.some((p) => p.id === postId && p.favorited);
 
     const toggleFavorite = (postId: string) => {
-      setFavorites((prev) =>
-        prev.includes(postId) ? prev.filter((id) => id !== postId) : [postId, ...prev]
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, favorited: !p.favorited } : p
+        )
       );
     };
 
-    const favoritePosts = posts.filter((p) => favorites.includes(p.id));
-
-    return {
-      posts,
-      addPost: (p) => {
-        const newPost: Post = {
-          id: String(Date.now()),
-          createdAt: new Date().toISOString(),
-          ...p,
-        };
-        setPosts((prev) => [newPost, ...prev]);
-      },
-
-      favorites,
-      isFavorite,
-      toggleFavorite,
-      favoritePosts,
+    const addPost = (p: Omit<Post, "id" | "createdAt" | "favorited">) => {
+      const newPost: Post = {
+        id: String(Date.now()),
+        createdAt: new Date().toISOString(),
+        favorited: false,
+        ...p,
+      };
+      setPosts((prev) => [newPost, ...prev]);
     };
-  }, [posts, favorites]);
+
+    const favoritePosts = posts.filter((p) => p.favorited);
+
+    return { posts, favoritePosts, addPost, toggleFavorite, isFavorite };
+  }, [posts]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

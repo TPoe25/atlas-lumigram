@@ -1,27 +1,32 @@
 // src/FeedCard.tsx
 import { useMemo, useState } from "react";
-import { View, Text, StyleSheet, Image } from "react-native";
+import { View, Text, StyleSheet, Image, Alert } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
-type Props = {
+export function FeedCard({
+    imageUrl,
+    caption,
+    favorited = false,
+    onDoubleTap,
+}: {
     imageUrl: string;
     caption: string;
-
-    // NEW:
-    onDoubleTap?: () => void;
     favorited?: boolean;
-};
-
-export function FeedCard({ imageUrl, caption, onDoubleTap, favorited }: Props) {
+    onDoubleTap?: () => void;
+}) {
     const [showCaption, setShowCaption] = useState(false);
 
     const longPress = useMemo(
         () =>
             Gesture.LongPress()
                 .minDuration(250)
-                .runOnJS(true)
-                .onStart(() => setShowCaption(true))
-                .onEnd(() => setShowCaption(false)),
+                .runOnJS(true) // ✅ critical for setState
+                .onBegin(() => {
+                    setShowCaption(true);
+                })
+                .onFinalize(() => {
+                    setShowCaption(false);
+                }),
         []
     );
 
@@ -29,7 +34,7 @@ export function FeedCard({ imageUrl, caption, onDoubleTap, favorited }: Props) {
         () =>
             Gesture.Tap()
                 .numberOfTaps(2)
-                .maxDelay(250)
+                .maxDuration(250)
                 .runOnJS(true)
                 .onEnd(() => {
                     onDoubleTap?.();
@@ -37,33 +42,31 @@ export function FeedCard({ imageUrl, caption, onDoubleTap, favorited }: Props) {
         [onDoubleTap]
     );
 
-    const gesture = useMemo(
-        () => Gesture.Simultaneous(doubleTap, longPress),
-        [doubleTap, longPress]
-    );
+    const gesture = Gesture.Simultaneous(doubleTap, longPress);
 
     return (
-        <GestureDetector gesture={gesture}>
-            <View style={styles.card}>
+        <View style={styles.card}>
+            <GestureDetector gesture={gesture}>
                 <View style={styles.imageWrap}>
                     <Image source={{ uri: imageUrl }} style={styles.image} />
 
+                    {/* small favorited badge */}
                     {favorited ? (
                         <View style={styles.favBadge}>
-                            <Text style={styles.favBadgeText}>★ Favorite</Text>
+                            <Text style={styles.favText}>★</Text>
                         </View>
                     ) : null}
 
                     {showCaption ? (
                         <View style={styles.captionOverlay}>
                             <Text style={styles.captionText} numberOfLines={2}>
-                                {caption || "Caption (placeholder)"}
+                                {caption}
                             </Text>
                         </View>
                     ) : null}
                 </View>
-            </View>
-        </GestureDetector>
+            </GestureDetector>
+        </View>
     );
 }
 
@@ -81,19 +84,10 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         backgroundColor: "#F3F4F6",
     },
-    image: { width: "100%", height: "100%" },
-
-    favBadge: {
-        position: "absolute",
-        top: 10,
-        left: 10,
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 999,
-        backgroundColor: "rgba(0,0,0,0.65)",
+    image: {
+        width: "100%",
+        height: "100%",
     },
-    favBadgeText: { color: "white", fontWeight: "900", fontSize: 12 },
-
     captionOverlay: {
         position: "absolute",
         left: 0,
@@ -103,5 +97,21 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         backgroundColor: "rgba(0,0,0,0.55)",
     },
-    captionText: { color: "white", fontWeight: "800" },
+    captionText: {
+        color: "white",
+        fontWeight: "800",
+    },
+    favBadge: {
+        position: "absolute",
+        top: 8,
+        right: 8,
+        backgroundColor: "rgba(0,0,0,0.65)",
+        borderRadius: 14,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    favText: {
+        color: "gold",
+        fontWeight: "900",
+    },
 });

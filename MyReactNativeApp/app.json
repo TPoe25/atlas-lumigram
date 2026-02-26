@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Allow access to take photos for posts.",
+        "NSPhotoLibraryUsageDescription": "Allow access to select photos for posts."
+      }
     },
     "android": {
       "adaptiveIcon": {

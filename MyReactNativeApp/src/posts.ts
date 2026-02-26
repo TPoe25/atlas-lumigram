@@ -4,10 +4,8 @@ export type Post = {
     imageUrl: string;
     caption: string;
     createdAt: string;
-    favorited?: boolean;
 };
 
-// Starter placeholder feed (you can keep your existing placeholder.ts if you want)
 export const INITIAL_POSTS: Post[] = [
     {
         id: "1",
