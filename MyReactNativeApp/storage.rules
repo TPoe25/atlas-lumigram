@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // Start locked down; relax this once auth and path rules are defined.
+      allow read, write: if false;
+    }
+  }
+}
