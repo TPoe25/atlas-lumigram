@@ -1,0 +1,15 @@
+connectorId: example
+generate:
+  adminNodeSdk:
+    - outputDir: ../../functions/src/dataconnect-admin-generated
+      package: "@dataconnect/admin-generated"
+      packageJsonDir: ../../functions
+    - outputDir: ../../MyReactNativeApp/functions/src/dataconnect-admin-generated
+      package: "@dataconnect/admin-generated"
+      packageJsonDir: ../../MyReactNativeApp/functions
+  javascriptSdk:
+    - outputDir: ../../MyReactNativeApp/src/dataconnect-generated
+      package: "@dataconnect/generated"
+      packageJsonDir: ../../MyReactNativeApp
+      react: true
+      angular: false

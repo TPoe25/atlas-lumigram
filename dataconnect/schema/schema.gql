@@ -1,0 +1,49 @@
+type User @table {
+  username: String!
+  email: String!
+  createdAt: Timestamp!
+  photoUrl: String
+  bio: String
+}
+
+type Workout @table {
+  name: String!
+  createdAt: Timestamp!
+  isPublic: Boolean!
+  description: String
+  imageUrl: String
+  author: User
+}
+
+type Exercise @table {
+  name: String!
+  type: String!
+  defaultSets: Int!
+  defaultReps: Int!
+  description: String
+}
+
+type WorkoutExercise @table(key: ["workout", "exercise"]) {
+  workout: Workout!
+  exercise: Exercise!
+  order: Int!
+  sets: Int!
+  reps: Int!
+  notes: String
+}
+
+type LoggedWorkout @table {
+  workoutDate: Date!
+  createdAt: Timestamp!
+  duration: Int
+  notes: String
+  user: User
+  workout: Workout
+}
+
+type Friendship @table(key: ["initiator", "recipient"]) {
+  initiator: User!
+  recipient: User!
+  status: String!
+  createdAt: Timestamp!
+}

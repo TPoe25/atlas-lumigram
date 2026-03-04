@@ -1,0 +1,66 @@
+query GetMyWorkouts @auth(level: USER) {
+  workouts(where: { author: { id_expr: "auth.uid" } }) {
+    id
+    name
+    description
+    isPublic
+    createdAt
+    imageUrl
+    author {
+      username
+    }
+    workoutExercises {
+      order
+      sets
+      reps
+      notes
+      exercise {
+        name
+        type
+        defaultSets
+        defaultReps
+      }
+    }
+  }
+}
+
+mutation CreateNewWorkout($name: String!, $description: String, $isPublic: Boolean!, $imageUrl: String, $exercises: [WorkoutExercise_Data!]) @auth(level: USER) {
+  workout_insert(
+    data: {
+      name: $name
+      description: $description
+      isPublic: $isPublic
+      imageUrl: $imageUrl
+      authorId_expr: "auth.uid"
+      createdAt_expr: "request.time"
+    }
+  ) {
+    id
+  }
+}
+
+query ListPublicExercises @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public") {
+  exercises(where: { name: { isNull: false } }) {
+    id
+    name
+    type
+    description
+    defaultSets
+    defaultReps
+  }
+}
+
+mutation LogWorkout($workoutId: UUID!, $workoutDate: Date!, $duration: Int, $notes: String) @auth(level: USER) {
+  loggedWorkout_insert(
+    data: {
+      workoutId: $workoutId
+      workoutDate: $workoutDate
+      duration: $duration
+      notes: $notes
+      userId_expr: "auth.uid"
+      createdAt_expr: "request.time"
+    }
+  ) {
+    id
+  }
+}
