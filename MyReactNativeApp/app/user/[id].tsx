@@ -140,7 +140,12 @@ export default function UserProfileScreen() {
                 ListEmptyComponent={
                     <Text style={styles.empty}>No activities yet.</Text>
                 }
-                contentContainerStyle={{ paddingBottom: 18 }}
+                ListFooterComponent={
+                    <Pressable style={styles.bottomBackBtn} onPress={goBack}>
+                        <Text style={styles.bottomBackText}>Go back</Text>
+                    </Pressable>
+                }
+                contentContainerStyle={{ paddingBottom: 24 }}
             />
         </View>
     );
@@ -214,4 +219,14 @@ const styles = StyleSheet.create({
     miniDelete: { borderColor: "#FECACA" },
     miniText: { fontWeight: "800", color: "#111827", fontSize: 12 },
     empty: { paddingVertical: 16, opacity: 0.7 },
+    bottomBackBtn: {
+        marginTop: 8,
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 14,
+        paddingVertical: 14,
+        alignItems: "center",
+    },
+    bottomBackText: { color: "#0F172A", fontWeight: "900" },
 });

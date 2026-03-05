@@ -60,6 +60,30 @@ export function addUser(name: string) {
   db!.runSync(`INSERT INTO users (name, created_at) VALUES (?, datetime('now'));`, [n]);
 }
 
+export function ensureUserByName(name: string): User | null {
+  const n = name.trim();
+  if (!n) return null;
+  initDb();
+
+  const existing = db!.getAllSync<User>(
+    `SELECT * FROM users WHERE lower(name) = lower(?) ORDER BY id DESC LIMIT 1;`,
+    [n]
+  );
+  if (existing[0]) return existing[0];
+
+  const result = db!.runSync(`INSERT INTO users (name, created_at) VALUES (?, datetime('now'));`, [n]);
+  const created = db!.getAllSync<User>(`SELECT * FROM users WHERE id = ? LIMIT 1;`, [
+    Number(result.lastInsertRowId),
+  ]);
+  return (
+    created[0] ?? {
+      id: Number(result.lastInsertRowId),
+      name: n,
+      created_at: new Date().toISOString(),
+    }
+  );
+}
+
 export function deleteUser(userId: number) {
   initDb();
   db!.runSync(`DELETE FROM activities WHERE user_id = ?;`, [userId]);

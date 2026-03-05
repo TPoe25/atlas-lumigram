@@ -33,6 +33,22 @@ export function addUser(name: string) {
     webUsers.push({ id: webUserId++, name: n, created_at: new Date().toISOString() });
 }
 
+export function ensureUserByName(name: string): User | null {
+    const n = name.trim();
+    if (!n) return null;
+    const normalized = n.toLowerCase();
+
+    for (let i = webUsers.length - 1; i >= 0; i -= 1) {
+        if (webUsers[i].name.trim().toLowerCase() === normalized) {
+            return webUsers[i];
+        }
+    }
+
+    const created: User = { id: webUserId++, name: n, created_at: new Date().toISOString() };
+    webUsers.push(created);
+    return created;
+}
+
 export function deleteUser(userId: number) {
     webActivities = webActivities.filter((a) => a.user_id !== userId);
     webUsers = webUsers.filter((u) => u.id !== userId);

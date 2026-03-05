@@ -11,9 +11,12 @@ import {
 } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { auth } from "../../src/firebase";
+import { useProfile } from "../../src/ProfileContext";
+import { addStrengthActivity, ensureUserByName } from "../../src/db";
 import { addWorkoutLog } from "../../src/workouts/logs";
 
 export default function AddWorkoutActivityScreen() {
+  const { profile } = useProfile();
   const p = useLocalSearchParams<{
     name?: string;
     type?: string;
@@ -90,6 +93,21 @@ export default function AddWorkoutActivityScreen() {
         weight: parsedWeight,
         notes: notes.trim() || undefined,
       });
+
+      const fallbackName = current.email?.split("@")[0]?.trim().toLowerCase();
+      const localUserName = profile.username.trim() || fallbackName || `user_${current.uid.slice(0, 6)}`;
+      const localUser = ensureUserByName(localUserName);
+      if (localUser) {
+        addStrengthActivity({
+          userId: localUser.id,
+          title: name,
+          sets: parsedSets,
+          reps: parsedReps,
+          weight: parsedWeight,
+          notes: notes.trim() || undefined,
+        });
+      }
+
       Alert.alert("Saved", "Activity added to your workout log.");
       router.replace("/(tabs)/home");
     } catch (e: any) {
