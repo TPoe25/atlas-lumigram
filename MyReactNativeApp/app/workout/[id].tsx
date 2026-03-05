@@ -27,28 +27,26 @@ export default function WorkoutDetail() {
         router.replace("/(tabs)/search");
     }
 
-    async function addAsActivity() {
+    function addAsActivity() {
         const current = auth.currentUser;
         if (!current) {
             Alert.alert("Sign in required", "Please log in to add activities.");
             return;
         }
-
-        try {
-            await addWorkoutLog({
-                uid: current.uid,
-                exerciseName: p.name ?? "Workout",
-                sets: 3,
-                reps: 10,
-                notes: p.instructions ?? "",
-            });
-            Alert.alert("Saved", "Workout added to your activity log.");
-        } catch (e: any) {
-            Alert.alert("Save failed", e?.message ?? "Unknown error");
-        }
+        router.push({
+            pathname: "/workout/add-activity",
+            params: {
+                name: p.name ?? "Workout",
+                type: p.type ?? "",
+                muscle: p.muscle ?? "",
+                difficulty: p.difficulty ?? "",
+                instructions: p.instructions ?? "",
+                gifUrl: p.gifUrl ?? "",
+            },
+        });
     }
 
-    async function saveFavoriteWorkout() {
+    async function persistFavoriteWorkout() {
         const current = auth.currentUser;
         if (!current) {
             Alert.alert("Sign in required", "Please log in to save favorites.");
@@ -76,6 +74,36 @@ export default function WorkoutDetail() {
         } catch (e: any) {
             Alert.alert("Save failed", e?.message ?? "Unknown error");
         }
+    }
+
+    async function saveFavoriteAndAddActivity() {
+        const current = auth.currentUser;
+        if (!current) {
+            Alert.alert("Sign in required", "Please log in first.");
+            return;
+        }
+
+        try {
+            await persistFavoriteWorkout();
+            await addWorkoutLog({
+                uid: current.uid,
+                exerciseName: p.name ?? "Workout",
+                sets: 3,
+                reps: 10,
+                notes: p.instructions ?? "Saved from favorites",
+            });
+            Alert.alert("Saved", "Workout saved to favorites and activity log.");
+        } catch (e: any) {
+            Alert.alert("Save failed", e?.message ?? "Unknown error");
+        }
+    }
+
+    function saveFavoriteWorkout() {
+        Alert.alert("Save favorite", "Choose how you want to save this workout.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Favorites only", onPress: () => void persistFavoriteWorkout() },
+            { text: "Favorites + Activity Log", onPress: () => void saveFavoriteAndAddActivity() },
+        ]);
     }
 
     return (
