@@ -24,6 +24,9 @@ service cloud.firestore {
     match /favorites/{uid}/posts/{postId} {
       allow read, write: if isMe(uid);
     }
+    match /favorites/{uid}/workouts/{workoutId} {
+      allow read, write: if isMe(uid);
+    }
 
     // USER PROFILES (public readable, owner writable)
     match /profiles/{uid} {
@@ -39,6 +42,11 @@ service cloud.firestore {
 
     // OPTIONAL: if you store logs nested per user:
     match /users/{uid}/logs/{logId} {
+      allow read, write: if isMe(uid);
+    }
+
+    // Workouts used by workout detail "Add As Activity"
+    match /workouts/{uid}/logs/{logId} {
       allow read, write: if isMe(uid);
     }
   }

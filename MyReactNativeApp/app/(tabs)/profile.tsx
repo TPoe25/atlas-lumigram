@@ -8,8 +8,9 @@ const GAP = 10;
 const PADDING = 16;
 
 export default function ProfileTab() {
-  const { posts } = usePosts();
+  const { posts, uid } = usePosts();
   const { profile } = useProfile();
+  const myPosts = posts.filter((p) => (p.uid || p.userId) === uid);
 
   const width = Dimensions.get("window").width;
   const tile = Math.floor((width - PADDING * 2 - GAP * 2) / 3);
@@ -29,12 +30,12 @@ export default function ProfileTab() {
 
         <View style={{ flex: 1 }}>
           <Text style={styles.username}>@{profile.username}</Text>
-          <Text style={styles.sub}>{posts.length} posts</Text>
+          <Text style={styles.sub}>{myPosts.length} posts</Text>
         </View>
       </View>
 
       <FlashList
-        data={posts}
+        data={myPosts}
         numColumns={3}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => (

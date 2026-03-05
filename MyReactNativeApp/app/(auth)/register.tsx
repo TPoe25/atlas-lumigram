@@ -11,17 +11,24 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { AuthError, createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../src/firebase";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import { auth, db } from "../../src/firebase";
 
 export default function RegisterScreen() {
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   async function createAccount() {
+    const u = username.trim();
     const e = email.trim().toLowerCase();
     const p = password;
 
+    if (!u) {
+      Alert.alert("Missing username", "Please enter a username.");
+      return;
+    }
     if (!e.includes("@")) {
       Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
@@ -33,7 +40,19 @@ export default function RegisterScreen() {
 
     try {
       setLoading(true);
-      await createUserWithEmailAndPassword(auth, e, p);
+      const cred = await createUserWithEmailAndPassword(auth, e, p);
+      await setDoc(
+        doc(db, "profiles", cred.user.uid),
+        {
+          uid: cred.user.uid,
+          email: cred.user.email ?? e,
+          username: u,
+          avatarUrl: null,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
       router.replace("/(tabs)/home");
     } catch (err) {
       const error = err as AuthError;
@@ -63,6 +82,17 @@ export default function RegisterScreen() {
         <Text style={styles.subtitle}>Start tracking your progress</Text>
 
         <View style={styles.card}>
+          <Text style={styles.label}>Username</Text>
+          <TextInput
+            value={username}
+            onChangeText={setUsername}
+            placeholder="your_name"
+            placeholderTextColor="#94A3B8"
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={styles.input}
+          />
+
           <Text style={styles.label}>Email</Text>
           <TextInput
             value={email}

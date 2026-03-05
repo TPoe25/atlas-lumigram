@@ -63,10 +63,18 @@ export default function UserProfileScreen() {
         ]);
     }
 
+    function goBack() {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace("/(tabs)/home");
+    }
+
     return (
         <View style={styles.page}>
             <View style={styles.headerRow}>
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                <Pressable onPress={goBack} style={styles.backBtn}>
                     <Text style={{ fontWeight: "900" }}>Back</Text>
                 </Pressable>
 

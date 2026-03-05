@@ -6,6 +6,14 @@ import { addUser, initDb } from "../src/db";
 export default function AddUser() {
   const [name, setName] = useState("");
 
+  function goBack() {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/home");
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.h1}>Add User</Text>
@@ -22,13 +30,13 @@ export default function AddUser() {
         onPress={() => {
           initDb();
           addUser(name);
-          router.back();
+          goBack();
         }}
       >
         <Text style={styles.primaryText}>Save</Text>
       </Pressable>
 
-      <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+      <Pressable style={styles.secondaryBtn} onPress={goBack}>
         <Text style={styles.secondaryText}>Go back</Text>
       </Pressable>
     </View>

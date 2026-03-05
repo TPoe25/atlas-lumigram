@@ -8,6 +8,8 @@ import type { WorkoutResult } from "../../src/workouts/types";
 import { WorkoutRow } from "../../app/workout/WorkoutRow";
 import { usePosts } from "../../src/PostsContext";
 import { FeedCard } from "../../src/FeedCard";
+import { attachGifUrls } from "../../src/workouts/attachGifs";
+import { EXERCISE_DB } from "../../src/workouts/exerciseDb";
 
 // Ensure USERS is exported from this file
 export const USERS = [
@@ -66,7 +68,7 @@ export default function SearchTab() {
             try {
                 const apiResults = await searchApiNinjas({ name }, ac.signal);
                 if (ac.signal.aborted) return;
-                setWorkouts(apiResults);
+                setWorkouts(attachGifUrls(apiResults, EXERCISE_DB));
             } catch (e: any) {
                 if (ac.signal.aborted) return;
                 Alert.alert("Workout search failed", e?.message ?? "Unknown error");
@@ -168,6 +170,7 @@ export default function SearchTab() {
                                         equipments: JSON.stringify(item.equipments ?? []),
                                         instructions: item.instructions ?? "",
                                         safety_info: item.safety_info ?? "",
+                                        gifUrl: item.gifUrl ?? "",
                                     },
                                 })
                             }

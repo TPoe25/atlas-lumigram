@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     View,
     Text,
@@ -17,10 +17,16 @@ import { router } from "expo-router";
 import { useProfile } from "../../src/ProfileContext";
 
 export default function EditProfileScreen() {
-    const { profile, updateProfile } = useProfile();
+    const { profile, loading, updateProfile } = useProfile();
 
     const [username, setUsername] = useState(profile.username);
     const [avatarUri, setAvatarUri] = useState<string | null>(profile.avatarUri);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        setUsername(profile.username);
+        setAvatarUri(profile.avatarUri);
+    }, [profile.username, profile.avatarUri]);
 
     async function pickAvatar() {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -40,16 +46,23 @@ export default function EditProfileScreen() {
         setAvatarUri(result.assets[0].uri);
     }
 
-    function save() {
+    async function save() {
         const u = username.trim();
         if (!u) {
             Alert.alert("Missing username", "Please enter a username.");
             return;
         }
 
-        updateProfile({ username: u, avatarUri });
-        Keyboard.dismiss();
-        router.back();
+        try {
+            setSaving(true);
+            await updateProfile({ username: u, avatarUri });
+            Keyboard.dismiss();
+            router.back();
+        } catch (e: any) {
+            Alert.alert("Profile update failed", e?.message ?? "Unknown error");
+        } finally {
+            setSaving(false);
+        }
     }
 
     return (
@@ -60,6 +73,7 @@ export default function EditProfileScreen() {
         >
             <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
                 <Text style={styles.h1}>Edit Profile</Text>
+                {loading ? <Text style={styles.avatarHint}>Loading profile…</Text> : null}
 
                 <Pressable onPress={pickAvatar} style={styles.avatarBtn}>
                     {avatarUri ? (
@@ -82,8 +96,8 @@ export default function EditProfileScreen() {
                     onSubmitEditing={save}
                 />
 
-                <Pressable style={styles.saveBtn} onPress={save}>
-                    <Text style={styles.saveText}>Save</Text>
+                <Pressable style={styles.saveBtn} onPress={save} disabled={saving}>
+                    <Text style={styles.saveText}>{saving ? "Saving..." : "Save"}</Text>
                 </Pressable>
             </ScrollView>
         </KeyboardAvoidingView>
