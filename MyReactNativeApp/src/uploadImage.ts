@@ -28,7 +28,7 @@ export async function uploadAvatarImage(params: {
     const { uid, imageUri } = params;
 
     const blob = await uriToBlob(imageUri);
-    const storageRef = ref(storage, `avatars/${uid}.jpg`);
+    const storageRef = ref(storage, `avatars/${uid}/avatar.jpg`);
 
     await uploadBytes(storageRef, blob);
     return await getDownloadURL(storageRef);

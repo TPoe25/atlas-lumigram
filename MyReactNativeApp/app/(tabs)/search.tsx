@@ -183,7 +183,7 @@ export default function SearchTab() {
                     renderItem={({ item }: any) => (
                         <FeedCard
                             imageUrl={item.imageUrl}
-                            caption={item.caption}
+                            caption={item.caption ?? item.text ?? ""}
                             favorited={isFavorite(item.id)}
                             onDoubleTap={() => toggleFavorite(item.id)}
                         />

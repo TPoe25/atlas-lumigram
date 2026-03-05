@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Pressable } from "react-native";
+import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { router, useFocusEffect } from "expo-router";
+import { signOut } from "firebase/auth";
 
 import { FeedCard } from "../../src/FeedCard";
 import { usePosts } from "../../src/PostsContext";
+import { auth } from "../../src/firebase";
 
 import { initDb, getUsers, deleteUser, type User } from "../../src/db";
 import { UserRow } from "../../src/UserRow";
@@ -16,7 +18,15 @@ type HomeItem =
 
 export default function HomeTab() {
   // Posts feed (Lumigram)
-  const { posts, toggleFavorite, isFavorite } = usePosts();
+  const {
+    posts,
+    toggleFavorite,
+    isFavorite,
+    refreshFeed,
+    loadMorePosts,
+    refreshingFeed,
+    loadingMorePosts,
+  } = usePosts();
 
   // Workout tracker (SQLite users)
   const [users, setUsers] = useState<User[]>([]);
@@ -36,39 +46,53 @@ export default function HomeTab() {
     }, [])
   );
 
+  async function handleLogout() {
+    try {
+      await signOut(auth);
+      router.replace("/(auth)/login");
+    } catch (e: any) {
+      Alert.alert("Logout failed", e?.message ?? "Unknown error");
+    }
+  }
+
   // Build a single list with sections + items
   const data: HomeItem[] = [
-    { kind: "section", id: "feed" },
-    ...posts.map((p) => ({ kind: "post", id: p.id })),
     { kind: "section", id: "tracker" },
-    ...users.map((u) => ({ kind: "user", id: String(u.id) })),
+    ...users.map((u): HomeItem => ({ kind: "user", id: String(u.id) })),
+    { kind: "section", id: "feed" },
+    ...posts.map((p): HomeItem => ({ kind: "post", id: p.id })),
   ];
 
   return (
     <View style={styles.page}>
+      <View style={styles.topBar}>
+        <Text style={styles.h1}>Home</Text>
+        <Pressable onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Log out</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.actionsRow}>
+        <Pressable style={styles.addBtn} onPress={() => router.push("/add-user")}>
+          <Text style={styles.addBtnText}>Add user</Text>
+        </Pressable>
+      </View>
+
       <FlashList
         data={data}
         keyExtractor={(item) => `${item.kind}:${item.id}`}
-        estimatedItemSize={320}
         contentContainerStyle={styles.listContent}
+        onRefresh={refreshFeed}
+        refreshing={refreshingFeed}
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
         renderItem={({ item }) => {
           // Section headers
           if (item.kind === "section") {
-            if (item.id === "feed") {
-              return <Text style={styles.h1}>Home</Text>;
+            if (item.id === "tracker") {
+              return <Text style={styles.h2}>Workout Tracker</Text>;
             }
-            return (
-              <View style={styles.trackerHeader}>
-                <Text style={styles.h2}>Workout Tracker</Text>
-
-                <Pressable
-                  style={styles.addBtn}
-                  onPress={() => router.push("/add-user")}
-                >
-                  <Text style={styles.addBtnText}>Add user</Text>
-                </Pressable>
-              </View>
-            );
+            return <Text style={styles.h2}>All Posts</Text>;
           }
 
           // Posts feed items
@@ -79,7 +103,7 @@ export default function HomeTab() {
             return (
               <FeedCard
                 imageUrl={post.imageUrl}
-                caption={post.caption}
+                caption={post.caption ?? post.text ?? ""}
                 favorited={isFavorite(post.id)}
                 onDoubleTap={() => toggleFavorite(post.id)}
               />
@@ -104,6 +128,9 @@ export default function HomeTab() {
         ListEmptyComponent={
           <Text style={styles.empty}>Nothing to show yet.</Text>
         }
+        ListFooterComponent={
+          loadingMorePosts ? <Text style={styles.footer}>Loading more posts...</Text> : null
+        }
       />
     </View>
   );
@@ -111,25 +138,36 @@ export default function HomeTab() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: "#F3F4F6" },
-  listContent: { paddingHorizontal: 16, paddingBottom: 16 },
+  listContent: { paddingHorizontal: 16, paddingBottom: 16, paddingTop: 6 },
 
+  topBar: {
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   h1: {
     fontSize: 28,
     fontWeight: "900",
     color: "#0F172A",
-    paddingTop: 18,
-    paddingBottom: 12,
   },
+  logoutBtn: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  logoutText: { fontWeight: "800", color: "#0F172A" },
 
-  trackerHeader: {
-    marginTop: 10,
+  actionsRow: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
     marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
   },
-  h2: { fontSize: 18, fontWeight: "900", color: "#0F172A" },
+  h2: { fontSize: 18, fontWeight: "900", color: "#0F172A", marginTop: 8, marginBottom: 10 },
 
   addBtn: {
     backgroundColor: "#0F172A",
@@ -140,4 +178,5 @@ const styles = StyleSheet.create({
   addBtnText: { color: "white", fontWeight: "900" },
 
   empty: { paddingTop: 18, opacity: 0.7, color: "#111827" },
+  footer: { textAlign: "center", opacity: 0.7, paddingVertical: 12 },
 });

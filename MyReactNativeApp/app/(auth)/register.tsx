@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { AuthError, createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../src/firebase";
 
 export default function RegisterScreen() {
@@ -35,8 +35,19 @@ export default function RegisterScreen() {
       setLoading(true);
       await createUserWithEmailAndPassword(auth, e, p);
       router.replace("/(tabs)/home");
-    } catch (err: any) {
-      Alert.alert("Sign up failed", err?.message ?? "Unknown error");
+    } catch (err) {
+      const error = err as AuthError;
+      const message =
+        error?.code === "auth/email-already-in-use"
+          ? "This email already has an account."
+          : error?.code === "auth/invalid-email"
+            ? "Please enter a valid email address."
+            : error?.code === "auth/weak-password"
+              ? "Use a stronger password (at least 6 characters)."
+              : error?.code === "auth/network-request-failed"
+                ? "Network error. Check connection and try again."
+                : error?.message ?? "Unknown error";
+      Alert.alert("Sign up failed", message);
     } finally {
       setLoading(false);
     }

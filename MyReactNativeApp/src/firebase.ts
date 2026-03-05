@@ -1,8 +1,8 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuth } from "firebase/auth";
+import { Platform } from "react-native";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -13,11 +13,30 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+function assertEnv(name: keyof typeof firebaseConfig) {
+  if (!firebaseConfig[name]) {
+    throw new Error(
+      `Missing ${name}. Set EXPO_PUBLIC_FIREBASE_* in .env and restart Expo.`
+    );
+  }
+}
+
+assertEnv("apiKey");
+if (Platform.OS === "web") {
+  assertEnv("authDomain");
+}
+assertEnv("projectId");
+assertEnv("storageBucket");
+assertEnv("messagingSenderId");
+assertEnv("appId");
+
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+function createAuth() {
+  return getAuth(app);
+}
+
+export const auth = createAuth();
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);

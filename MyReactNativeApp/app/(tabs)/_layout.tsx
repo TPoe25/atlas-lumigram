@@ -1,6 +1,23 @@
-import { Tabs } from "expo-router";
+import { useEffect, useState } from "react";
+import { Redirect, Tabs } from "expo-router";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "../../src/firebase";
 
 export default function TabsLayout() {
+  const [ready, setReady] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setSignedIn(!!user);
+      setReady(true);
+    });
+    return unsub;
+  }, []);
+
+  if (!ready) return null;
+  if (!signedIn) return <Redirect href="/(auth)/login" />;
+
   return (
     <Tabs
       screenOptions={{

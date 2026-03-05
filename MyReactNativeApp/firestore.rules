@@ -8,8 +8,16 @@ service cloud.firestore {
     // POSTS
     match /posts/{postId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn()
+        && (
+          request.resource.data.uid == request.auth.uid
+          || request.resource.data.userId == request.auth.uid
+        );
+      allow update, delete: if signedIn()
+        && (
+          resource.data.uid == request.auth.uid
+          || resource.data.userId == request.auth.uid
+        );
     }
 
     // FAVORITES

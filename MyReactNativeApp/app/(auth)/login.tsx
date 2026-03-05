@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { AuthError, signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../../src/firebase";
 
 export default function LoginScreen() {
@@ -26,13 +26,26 @@ export default function LoginScreen() {
       Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
     }
+    if (p.length < 6) {
+      Alert.alert("Invalid password", "Password must be at least 6 characters.");
+      return;
+    }
 
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, e, p);
       router.replace("/(tabs)/home");
-    } catch (err: any) {
-      Alert.alert("Login failed", err?.message ?? "Unknown error");
+    } catch (err) {
+      const error = err as AuthError;
+      const message =
+        error?.code === "auth/user-not-found" || error?.code === "auth/wrong-password"
+          ? "Invalid email or password."
+          : error?.code === "auth/invalid-credential"
+            ? "Invalid email or password."
+            : error?.code === "auth/network-request-failed"
+              ? "Network error. Check connection and try again."
+              : error?.message ?? "Unknown error";
+      Alert.alert("Login failed", message);
     } finally {
       setLoading(false);
     }

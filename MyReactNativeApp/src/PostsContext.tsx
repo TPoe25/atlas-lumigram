@@ -1,23 +1,31 @@
 // src/PostsContext.tsx
- import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import {
   collection,
   doc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
+  QueryDocumentSnapshot,
+  DocumentData,
+  startAfter,
   setDoc,
   deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { uploadPostImage } from "./uploadImage";
 
 export type Post = {
   id: string;
-  userId: string;
+  uid: string;
+  userId?: string;
   imageUrl: string;
   caption?: string;
+  text?: string;
   createdAt?: any;
 };
 
@@ -25,12 +33,22 @@ type PostsContextValue = {
   user: User | null;
   uid: string | null;
   posts: Post[];
+  favoritePosts: Post[];
   favoriteIds: Set<string>;
+  isFavorite: (postId: string) => boolean;
   toggleFavorite: (postId: string) => Promise<void>;
-  addPost: (input: { imageUrl: string; caption?: string }) => Promise<void>;
+  addPost: (input: { imageUri?: string; imageUrl?: string; caption?: string; text?: string }) => Promise<void>;
+  searchPosts: (term: string) => Promise<Post[]>;
+  refreshFeed: () => Promise<void>;
+  loadMorePosts: () => Promise<void>;
+  refreshingFeed: boolean;
+  loadingMorePosts: boolean;
+  loadingFeed: boolean;
+  hasMorePosts: boolean;
 };
 
 const PostsContext = createContext<PostsContextValue | null>(null);
+const POSTS_PAGE_SIZE = 10;
 
 export function usePosts() {
   const ctx = useContext(PostsContext);
@@ -43,45 +61,98 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
   const uid = user?.uid ?? null;
 
   const [posts, setPosts] = useState<Post[]>([]);
+  const [lastPostDoc, setLastPostDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [loadingFeed, setLoadingFeed] = useState(false);
+  const [refreshingFeed, setRefreshingFeed] = useState(false);
+  const [loadingMorePosts, setLoadingMorePosts] = useState(false);
+  const [hasMorePosts, setHasMorePosts] = useState(true);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
-  // Auth listener
+  const feedBaseQuery = useMemo(
+    () => query(collection(db, "posts"), orderBy("createdAt", "desc")),
+    []
+  );
+
+  function normalizePostDoc(d: QueryDocumentSnapshot<DocumentData>): Post {
+    const data = d.data() as Partial<Post> & { userId?: string; uid?: string };
+    return {
+      id: d.id,
+      uid: data.uid ?? data.userId ?? "",
+      userId: data.userId ?? data.uid ?? "",
+      imageUrl: data.imageUrl ?? "",
+      caption: data.caption ?? "",
+      text: data.text ?? data.caption ?? "",
+      createdAt: data.createdAt,
+    };
+  }
+
+  const fetchFirstPage = useCallback(async () => {
+    if (!uid) return;
+    const snap = await getDocs(query(feedBaseQuery, limit(POSTS_PAGE_SIZE)));
+    const next = snap.docs.map(normalizePostDoc);
+    setPosts(next);
+    setLastPostDoc(snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null);
+    setHasMorePosts(snap.docs.length === POSTS_PAGE_SIZE);
+  }, [uid, feedBaseQuery]);
+
+  const refreshFeed = useCallback(async () => {
+    if (!uid) return;
+    setRefreshingFeed(true);
+    try {
+      await fetchFirstPage();
+    } finally {
+      setRefreshingFeed(false);
+    }
+  }, [uid, fetchFirstPage]);
+
+  const loadMorePosts = useCallback(async () => {
+    if (!uid || !lastPostDoc || !hasMorePosts || loadingMorePosts) return;
+    setLoadingMorePosts(true);
+    try {
+      const snap = await getDocs(
+        query(feedBaseQuery, startAfter(lastPostDoc), limit(POSTS_PAGE_SIZE))
+      );
+      const next = snap.docs.map(normalizePostDoc);
+      setPosts((prev) => [...prev, ...next]);
+      setLastPostDoc(snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : lastPostDoc);
+      setHasMorePosts(snap.docs.length === POSTS_PAGE_SIZE);
+    } finally {
+      setLoadingMorePosts(false);
+    }
+  }, [uid, lastPostDoc, hasMorePosts, loadingMorePosts, feedBaseQuery]);
+
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
-      console.log("AUTH STATE:", u ? "signed in" : "signed out");
       setUser(u);
     });
     return unsub;
   }, []);
 
-  // Posts feed listener (ONLY when signed in)
+  // Feed load (ONLY when signed in)
   useEffect(() => {
-    console.log("AUTH UID (PostsContext):", uid ?? "none");
-
-    // If signed out, do NOT subscribe (rules require signedIn()).
     if (!uid) {
       setPosts([]);
+      setLastPostDoc(null);
+      setHasMorePosts(false);
+      setLoadingFeed(false);
       return;
     }
 
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-    const unsub = onSnapshot(
-      q,
-      (snap) => {
-        const next: Post[] = snap.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<Post, "id">),
-        }));
-        setPosts(next);
-      },
-      (error) => {
-        console.error("Posts snapshot error:", error);
-        setPosts([]);
-      }
-    );
+    let mounted = true;
+    setLoadingFeed(true);
+    fetchFirstPage()
+      .catch((error) => {
+        console.error("Feed load error:", error);
+        if (mounted) setPosts([]);
+      })
+      .finally(() => {
+        if (mounted) setLoadingFeed(false);
+      });
 
-    return unsub;
-  }, [uid]);
+    return () => {
+      mounted = false;
+    };
+  }, [uid, fetchFirstPage]);
 
   // Favorites listener (ONLY when signed in)
   useEffect(() => {
@@ -118,30 +189,88 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function addPost(input: { imageUrl: string; caption?: string }) {
-    if (!uid) throw new Error("Must be signed in to create posts.");
+  const isFavorite = useCallback(
+    (postId: string) => favoriteIds.has(postId),
+    [favoriteIds]
+  );
 
-    // If you already have an add-post flow elsewhere, keep using it.
-    // This is a minimal safe example.
-    const { addDoc } = await import("firebase/firestore");
-    await addDoc(collection(db, "posts"), {
+  const favoritePosts = useMemo(
+    () => posts.filter((p) => favoriteIds.has(p.id)),
+    [posts, favoriteIds]
+  );
+
+  async function addPost(input: { imageUri?: string; imageUrl?: string; caption?: string; text?: string }) {
+    if (!uid) throw new Error("Must be signed in to create posts.");
+    const caption = (input.caption ?? "").trim();
+    const text = (input.text ?? caption).trim();
+
+    const postRef = doc(collection(db, "posts"));
+    const imageUrl =
+      input.imageUrl ??
+      (input.imageUri
+        ? await uploadPostImage({ uid, postId: postRef.id, imageUri: input.imageUri })
+        : null);
+
+    if (!imageUrl) throw new Error("No image provided.");
+
+    await setDoc(postRef, {
+      uid,
       userId: uid,
-      imageUrl: input.imageUrl,
-      caption: input.caption ?? "",
+      imageUrl,
+      caption,
+      text,
       createdAt: serverTimestamp(),
     });
+
+    await refreshFeed();
   }
+
+  const searchPosts = useCallback(
+    async (term: string) => {
+      const q = term.trim().toLowerCase();
+      if (!q) return [];
+      return posts.filter((p) => {
+        const caption = (p.caption ?? "").toLowerCase();
+        const text = (p.text ?? "").toLowerCase();
+        return caption.includes(q) || text.includes(q);
+      });
+    },
+    [posts]
+  );
 
   const value = useMemo(
     () => ({
       user,
       uid,
       posts,
+      favoritePosts,
       favoriteIds,
+      isFavorite,
       toggleFavorite,
       addPost,
+      searchPosts,
+      refreshFeed,
+      loadMorePosts,
+      refreshingFeed,
+      loadingMorePosts,
+      loadingFeed,
+      hasMorePosts,
     }),
-    [user, uid, posts, favoriteIds]
+    [
+      user,
+      uid,
+      posts,
+      favoritePosts,
+      favoriteIds,
+      isFavorite,
+      searchPosts,
+      refreshFeed,
+      loadMorePosts,
+      refreshingFeed,
+      loadingMorePosts,
+      loadingFeed,
+      hasMorePosts,
+    ]
   );
 
   return <PostsContext.Provider value={value}>{children}</PostsContext.Provider>;

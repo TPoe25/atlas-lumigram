@@ -17,7 +17,7 @@ export default function FavoritesTab() {
                 renderItem={({ item }) => (
                     <FeedCard
                         imageUrl={item.imageUrl}
-                        caption={item.caption}
+                        caption={item.caption ?? item.text ?? ""}
                         favorited={isFavorite(item.id)}
                         onDoubleTap={() => toggleFavorite(item.id)} // double tap to UNfavorite too
                     />
