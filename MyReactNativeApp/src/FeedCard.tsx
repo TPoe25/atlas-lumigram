@@ -5,11 +5,15 @@ import { Gesture, GestureDetector } from "react-native-gesture-handler";
 export function FeedCard({
     imageUrl,
     caption,
+    authorName,
+    timestampLabel,
     favorited,
     onDoubleTap,
 }: {
     imageUrl: string;
     caption: string;
+    authorName?: string;
+    timestampLabel?: string;
     favorited?: boolean;
     onDoubleTap?: () => void;
 }) {
@@ -53,6 +57,17 @@ export function FeedCard({
                     {favorited ? <View style={styles.badge}><Text style={styles.badgeText}>★</Text></View> : null}
                 </View>
             </GestureDetector>
+
+            {(authorName || timestampLabel) ? (
+                <View style={styles.metaRow}>
+                    <Text style={styles.author} numberOfLines={1}>
+                        {authorName ? `@${authorName}` : ""}
+                    </Text>
+                    <Text style={styles.time} numberOfLines={1}>
+                        {timestampLabel ?? ""}
+                    </Text>
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -90,4 +105,15 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     badgeText: { color: "white", fontWeight: "900" },
+    metaRow: {
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderTopWidth: 1,
+        borderTopColor: "#E5E7EB",
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+    author: { fontWeight: "900", color: "#0F172A", maxWidth: "62%" },
+    time: { opacity: 0.65, color: "#111827", fontWeight: "700", fontSize: 12 },
 });

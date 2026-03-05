@@ -18,6 +18,7 @@ export default function WorkoutDetail() {
     }>();
 
     const equipments = p.equipments ? (JSON.parse(p.equipments) as string[]) : [];
+    const workoutId = (p.id ?? p.name ?? "workout").toString().toLowerCase().replace(/\s+/g, "-");
 
     function goBack() {
         if (router.canGoBack()) {
@@ -54,7 +55,6 @@ export default function WorkoutDetail() {
         }
 
         try {
-            const workoutId = (p.id ?? p.name ?? "workout").toString().toLowerCase().replace(/\s+/g, "-");
             await setDoc(
                 doc(db, "favorites", current.uid, "workouts", workoutId),
                 {
@@ -70,6 +70,36 @@ export default function WorkoutDetail() {
                 },
                 { merge: true }
             );
+            return;
+        } catch (e: any) {
+            const code = e?.code ?? "";
+            if (code !== "permission-denied" && code !== "firestore/permission-denied") {
+                throw e;
+            }
+        }
+
+        // Fallback for projects still running older rules (posts subcollection only)
+        await setDoc(
+            doc(db, "favorites", current.uid, "posts", `workout-${workoutId}`),
+            {
+                kind: "workout",
+                workoutId,
+                name: p.name ?? "Workout",
+                type: p.type ?? "",
+                muscle: p.muscle ?? "",
+                difficulty: p.difficulty ?? "",
+                gifUrl: p.gifUrl ?? null,
+                instructions: p.instructions ?? "",
+                safety_info: p.safety_info ?? "",
+                createdAt: serverTimestamp(),
+            },
+            { merge: true }
+        );
+    }
+
+    async function saveFavoriteOnly() {
+        try {
+            await persistFavoriteWorkout();
             Alert.alert("Saved", "Workout saved to favorites.");
         } catch (e: any) {
             Alert.alert("Save failed", e?.message ?? "Unknown error");
@@ -101,7 +131,7 @@ export default function WorkoutDetail() {
     function saveFavoriteWorkout() {
         Alert.alert("Save favorite", "Choose how you want to save this workout.", [
             { text: "Cancel", style: "cancel" },
-            { text: "Favorites only", onPress: () => void persistFavoriteWorkout() },
+            { text: "Favorites only", onPress: () => void saveFavoriteOnly() },
             { text: "Favorites + Activity Log", onPress: () => void saveFavoriteAndAddActivity() },
         ]);
     }

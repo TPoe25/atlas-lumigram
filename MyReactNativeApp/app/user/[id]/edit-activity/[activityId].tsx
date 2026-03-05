@@ -61,6 +61,14 @@ export default function EditActivity() {
 
     const isStrength = activity.kind === "strength";
 
+    function goBack() {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace(`/user/${userId}`);
+    }
+
     function toIntOrNull(v: string) {
         const n = Number(v);
         return Number.isFinite(n) ? n : null;
@@ -102,7 +110,7 @@ export default function EditActivity() {
             });
         }
 
-        router.back();
+        goBack();
     }
 
     return (
@@ -186,7 +194,7 @@ export default function EditActivity() {
                     <Text style={styles.saveText}>Save Changes</Text>
                 </Pressable>
 
-                <Pressable style={styles.backBtn} onPress={() => router.back()}>
+                <Pressable style={styles.backBtn} onPress={goBack}>
                     <Text style={styles.backText}>Cancel</Text>
                 </Pressable>
 

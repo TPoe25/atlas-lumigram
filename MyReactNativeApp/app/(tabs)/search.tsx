@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { router } from "expo-router";
+import { collection, getDocs } from "firebase/firestore";
 
 import { searchApiNinjas } from "../../src/workouts/apiNinjas";
 import type { WorkoutResult } from "../../src/workouts/types";
@@ -10,12 +11,13 @@ import { usePosts } from "../../src/PostsContext";
 import { FeedCard } from "../../src/FeedCard";
 import { attachGifUrls } from "../../src/workouts/attachGifs";
 import { EXERCISE_DB } from "../../src/workouts/exerciseDb";
+import { db } from "../../src/firebase";
 
-// Ensure USERS is exported from this file
-export const USERS = [
-    { id: 1, username: "user1", name: "User One" },
-    { id: 2, username: "user2", name: "User Two" },
-];
+type AppUser = {
+    id: string;
+    username: string;
+    email?: string | null;
+};
 
 type Mode = "users" | "workouts" | "posts";
 
@@ -37,17 +39,47 @@ export default function SearchTab() {
     const [workouts, setWorkouts] = useState<WorkoutResult[]>([]);
     const [loading, setLoading] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
+    const [users, setUsers] = useState<AppUser[]>([]);
 
     // posts
     const { searchPosts, toggleFavorite, isFavorite } = usePosts();
     const [posts, setPosts] = useState<any[]>([]);
     const [postLoading, setPostLoading] = useState(false);
 
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            try {
+                const snap = await getDocs(collection(db, "profiles"));
+                if (cancelled) return;
+                const next: AppUser[] = snap.docs.map((d) => {
+                    const data = d.data() as { username?: string; email?: string | null };
+                    return {
+                        id: d.id,
+                        username: (data.username ?? "").trim() || "user",
+                        email: data.email ?? null,
+                    };
+                });
+                setUsers(next);
+            } catch (e) {
+                console.error("Failed loading users:", e);
+                setUsers([]);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const filteredUsers = useMemo(() => {
         const s = dq.trim().toLowerCase();
-        if (!s) return USERS;
-        return USERS.filter((u: any) => u.username?.toLowerCase().includes(s));
-    }, [dq]);
+        if (!s) return users;
+        return users.filter((u) => {
+            const username = u.username.toLowerCase();
+            const email = (u.email ?? "").toLowerCase();
+            return username.includes(s) || email.includes(s);
+        });
+    }, [dq, users]);
 
     useEffect(() => {
         if (mode !== "workouts") return;
@@ -138,14 +170,14 @@ export default function SearchTab() {
             {mode === "users" ? (
                 <FlashList
                     data={filteredUsers}
-                    keyExtractor={(u: any) => String(u.id)}
-                    renderItem={({ item }: any) => (
+                    keyExtractor={(u) => String(u.id)}
+                    renderItem={({ item }) => (
                         <Pressable
-                            onPress={() => router.push(`/user/${item.id}`)}
+                            onPress={() => router.push(`/user-profile/${item.id}`)}
                             style={({ pressed }) => [styles.userRow, pressed && { opacity: 0.92 }]}
                         >
                             <Text style={{ fontWeight: "900" }}>{item.username}</Text>
-                            <Text style={{ opacity: 0.7 }}>{item.name}</Text>
+                            {item.email ? <Text style={{ opacity: 0.7 }}>{item.email}</Text> : null}
                         </Pressable>
                     )}
                     ListEmptyComponent={<Text style={styles.empty}>No users found.</Text>}

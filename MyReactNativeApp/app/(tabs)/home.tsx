@@ -3,10 +3,12 @@ import { View, Text, StyleSheet, Pressable, Alert } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { router, useFocusEffect } from "expo-router";
 import { signOut } from "firebase/auth";
+import { collection, onSnapshot } from "firebase/firestore";
 
 import { FeedCard } from "../../src/FeedCard";
 import { usePosts } from "../../src/PostsContext";
 import { auth } from "../../src/firebase";
+import { db } from "../../src/firebase";
 
 import { initDb, getUsers, deleteUser, type User } from "../../src/db";
 import { UserRow } from "../../src/UserRow";
@@ -30,6 +32,7 @@ export default function HomeTab() {
 
   // Workout tracker (SQLite users)
   const [users, setUsers] = useState<User[]>([]);
+  const [usernamesByUid, setUsernamesByUid] = useState<Record<string, string>>({});
 
   function refreshUsers() {
     setUsers(getUsers());
@@ -45,6 +48,30 @@ export default function HomeTab() {
       refreshUsers();
     }, [])
   );
+
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(db, "profiles"),
+      (snap) => {
+        const map: Record<string, string> = {};
+        snap.forEach((d) => {
+          const data = d.data() as { username?: string };
+          map[d.id] = data.username?.trim() || "user";
+        });
+        setUsernamesByUid(map);
+      },
+      () => {
+        setUsernamesByUid({});
+      }
+    );
+    return unsub;
+  }, []);
+
+  function formatCreatedAt(createdAt: any) {
+    const date = createdAt?.toDate?.();
+    if (!date || !(date instanceof Date)) return "";
+    return date.toLocaleString();
+  }
 
   async function handleLogout() {
     try {
@@ -104,6 +131,8 @@ export default function HomeTab() {
               <FeedCard
                 imageUrl={post.imageUrl}
                 caption={post.caption ?? post.text ?? ""}
+                authorName={usernamesByUid[post.uid || post.userId || ""] ?? "user"}
+                timestampLabel={formatCreatedAt(post.createdAt)}
                 favorited={isFavorite(post.id)}
                 onDoubleTap={() => toggleFavorite(post.id)}
               />

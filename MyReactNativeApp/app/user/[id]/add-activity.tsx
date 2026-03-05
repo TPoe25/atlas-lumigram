@@ -33,6 +33,14 @@ export default function AddActivity() {
 
     const [notes, setNotes] = useState("");
 
+    function goBack() {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace(`/user/${userId}`);
+    }
+
     function save() {
         const t = title.trim();
         if (!t) return;
@@ -56,7 +64,7 @@ export default function AddActivity() {
             });
         }
 
-        router.back();
+        goBack();
     }
 
     return (
@@ -171,7 +179,7 @@ export default function AddActivity() {
                     <Text style={styles.saveText}>Save</Text>
                 </Pressable>
 
-                <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                <Pressable onPress={goBack} style={styles.backBtn}>
                     <Text style={styles.backText}>Go back</Text>
                 </Pressable>
 

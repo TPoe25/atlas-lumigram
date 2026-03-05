@@ -28,6 +28,14 @@ export default function EditProfileScreen() {
         setAvatarUri(profile.avatarUri);
     }, [profile.username, profile.avatarUri]);
 
+    function goBack() {
+        if (router.canGoBack()) {
+            router.back();
+            return;
+        }
+        router.replace("/(tabs)/profile");
+    }
+
     async function pickAvatar() {
         const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!perm.granted) {
@@ -57,7 +65,7 @@ export default function EditProfileScreen() {
             setSaving(true);
             await updateProfile({ username: u, avatarUri });
             Keyboard.dismiss();
-            router.back();
+            goBack();
         } catch (e: any) {
             Alert.alert("Profile update failed", e?.message ?? "Unknown error");
         } finally {
