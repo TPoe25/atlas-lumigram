@@ -9,7 +9,7 @@ import {
     KeyboardAvoidingView,
     ScrollView,
 } from "react-native";
-import { useLocalSearchParams, router } from "expo-router";
+import { Stack, useLocalSearchParams, router } from "expo-router";
 import { addStrengthActivity, addConditioningActivity } from "../../../src/db";
 
 type Mode = "strength" | "conditioning";
@@ -73,10 +73,15 @@ export default function AddActivity() {
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
         >
+            <Stack.Screen options={{ headerShown: false }} />
             <ScrollView
                 contentContainerStyle={styles.page}
                 keyboardShouldPersistTaps="handled"
             >
+                <Pressable onPress={goBack} style={styles.topBackBtn}>
+                    <Text style={styles.topBackText}>Back</Text>
+                </Pressable>
+
                 <Text style={styles.h1}>Add Activity</Text>
 
                 <View style={styles.segmentRow}>
@@ -200,6 +205,8 @@ const styles = StyleSheet.create({
         gap: 14,
     },
     h1: { fontSize: 40, fontWeight: "900", color: "#0F172A", marginBottom: 4 },
+    topBackBtn: { alignSelf: "flex-start", marginBottom: 4 },
+    topBackText: { fontWeight: "900", opacity: 0.8, color: "#0F172A" },
 
     segmentRow: { flexDirection: "row", gap: 12, marginBottom: 6 },
     segment: {

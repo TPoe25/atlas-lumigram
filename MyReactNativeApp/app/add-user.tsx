@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet } from "react-native";
-import { router } from "expo-router";
+import { Stack, router } from "expo-router";
 import { addUser, initDb } from "../src/db";
 
 export default function AddUser() {
@@ -16,6 +16,12 @@ export default function AddUser() {
 
   return (
     <View style={styles.container}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <Pressable style={styles.topBackBtn} onPress={goBack}>
+        <Text style={styles.topBackText}>Back</Text>
+      </Pressable>
+
       <Text style={styles.h1}>Add User</Text>
 
       <TextInput
@@ -45,6 +51,8 @@ export default function AddUser() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 50, backgroundColor: "#F3F4F6" },
+  topBackBtn: { alignSelf: "flex-start", marginBottom: 10 },
+  topBackText: { fontWeight: "900", opacity: 0.8, color: "#111827" },
   h1: { fontSize: 28, fontWeight: "900", marginBottom: 14, color: "#111827" },
   input: {
     backgroundColor: "white",

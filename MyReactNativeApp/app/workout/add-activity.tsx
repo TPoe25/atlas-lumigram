@@ -9,7 +9,7 @@ import {
   Text,
   TextInput,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { auth } from "../../src/firebase";
 import { addWorkoutLog } from "../../src/workouts/logs";
 
@@ -105,6 +105,7 @@ export default function AddWorkoutActivityScreen() {
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
         <Pressable onPress={goBack} style={styles.backBtn}>
           <Text style={styles.backText}>Back</Text>
