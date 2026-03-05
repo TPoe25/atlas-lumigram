@@ -1,8 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { getAuth } from "firebase/auth";
+import * as FirebaseAuth from "firebase/auth";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -33,7 +34,26 @@ assertEnv("appId");
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 function createAuth() {
-  return getAuth(app);
+  if (Platform.OS === "web") {
+    return FirebaseAuth.getAuth(app);
+  }
+
+  const getReactNativePersistence = (FirebaseAuth as any).getReactNativePersistence as
+    | ((storage: typeof AsyncStorage) => FirebaseAuth.Persistence)
+    | undefined;
+
+  // initializeAuth must only run once per app instance.
+  // Fallback to getAuth in hot-reload/already-initialized cases.
+  try {
+    if (typeof getReactNativePersistence === "function") {
+      return FirebaseAuth.initializeAuth(app, {
+        persistence: getReactNativePersistence(AsyncStorage),
+      });
+    }
+    return FirebaseAuth.getAuth(app);
+  } catch {
+    return FirebaseAuth.getAuth(app);
+  }
 }
 
 export const auth = createAuth();
