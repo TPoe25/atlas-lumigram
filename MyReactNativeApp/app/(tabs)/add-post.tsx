@@ -11,7 +11,6 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-  TouchableWithoutFeedback,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { usePosts } from "../../src/PostsContext";
@@ -21,6 +20,7 @@ export default function AddPostTab() {
 
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function pickFromLibrary() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -30,14 +30,12 @@ export default function AddPostTab() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images, // safe + compatible
       allowsEditing: true,
       quality: 0.85,
     });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setImageUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setImageUri(result.assets[0].uri);
   }
 
   async function takePhoto() {
@@ -53,52 +51,46 @@ export default function AddPostTab() {
       quality: 0.85,
     });
 
-    if (!result.canceled && result.assets?.[0]?.uri) {
-      setImageUri(result.assets[0].uri);
-    }
+    if (!result.canceled) setImageUri(result.assets[0].uri);
   }
 
-  function handleAddPost() {
+  async function handleAddPost() {
     if (!imageUri) {
       Alert.alert("Missing image", "Pick an image first.");
       return;
     }
 
-    addPost({
-      imageUrl: imageUri, // local URI is fine for now
-      caption: caption.trim(),
-    });
-
-    setImageUri(null);
-    setCaption("");
-    Keyboard.dismiss();
-    Alert.alert("Posted!", "Your post was added.");
+    try {
+      setLoading(true);
+      await addPost({ imageUri, caption });
+      setImageUri(null);
+      setCaption("");
+      Keyboard.dismiss();
+      Alert.alert("Posted!", "Your post was added.");
+    } catch (e: any) {
+      Alert.alert("Post failed", e?.message ?? "Unknown error");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const canPost = Boolean(imageUri);
-
   return (
-    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <Pressable style={{ flex: 1 }} onPress={Keyboard.dismiss} accessible={false}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: "#F3F4F6" }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
       >
-        <ScrollView
-          contentContainerStyle={styles.page}
-          keyboardShouldPersistTaps="handled"
-        >
+        <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
           <Text style={styles.h1}>Add Post</Text>
 
-          <View style={styles.row}>
-            <Pressable style={[styles.pickBtn, { flex: 1 }]} onPress={takePhoto}>
-              <Text style={styles.pickText}>Take Photo</Text>
+          <View style={styles.btnRow}>
+            <Pressable style={styles.pickBtn} onPress={pickFromLibrary} disabled={loading}>
+              <Text style={styles.pickText}>Library</Text>
             </Pressable>
 
-            <Pressable style={[styles.pickBtn, { flex: 1 }]} onPress={pickFromLibrary}>
-              <Text style={styles.pickText}>
-                {imageUri ? "Change Photo" : "Choose Photo"}
-              </Text>
+            <Pressable style={styles.pickBtn} onPress={takePhoto} disabled={loading}>
+              <Text style={styles.pickText}>Camera</Text>
             </Pressable>
           </View>
 
@@ -121,36 +113,24 @@ export default function AddPostTab() {
             onSubmitEditing={() => Keyboard.dismiss()}
           />
 
-          <Pressable
-            style={[styles.postBtn, !canPost && styles.postBtnDisabled]}
-            onPress={handleAddPost}
-            disabled={!canPost}
-          >
-            <Text style={[styles.postText, !canPost && styles.postTextDisabled]}>
-              Add Post
-            </Text>
+          <Pressable style={styles.postBtn} onPress={handleAddPost} disabled={loading}>
+            <Text style={styles.postText}>{loading ? "Uploading..." : "Add Post"}</Text>
           </Pressable>
 
           <View style={{ height: 24 }} />
         </ScrollView>
       </KeyboardAvoidingView>
-    </TouchableWithoutFeedback>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flexGrow: 1,
-    padding: 16,
-    paddingTop: 18,
-    backgroundColor: "#F3F4F6",
-    gap: 14,
-  },
+  page: { flexGrow: 1, padding: 16, paddingTop: 18, backgroundColor: "#F3F4F6", gap: 14 },
   h1: { fontSize: 28, fontWeight: "900", color: "#0F172A" },
 
-  row: { flexDirection: "row", gap: 12 },
-
+  btnRow: { flexDirection: "row", gap: 12 },
   pickBtn: {
+    flex: 1,
     backgroundColor: "white",
     borderWidth: 1,
     borderColor: "#E5E7EB",
@@ -160,12 +140,7 @@ const styles = StyleSheet.create({
   },
   pickText: { fontWeight: "900", color: "#0F172A" },
 
-  preview: {
-    width: "100%",
-    height: 320,
-    borderRadius: 18,
-    backgroundColor: "#E5E7EB",
-  },
+  preview: { width: "100%", height: 320, borderRadius: 18, backgroundColor: "#E5E7EB" },
   previewPlaceholder: {
     width: "100%",
     height: 320,
@@ -193,7 +168,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   postText: { color: "white", fontWeight: "900", fontSize: 16 },
-
-  postBtnDisabled: { opacity: 0.45 },
-  postTextDisabled: { color: "white" },
 });

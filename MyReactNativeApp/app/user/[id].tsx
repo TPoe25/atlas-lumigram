@@ -1,117 +1,150 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { useEffect, useState } from "react";
+import { View, Text, StyleSheet, Pressable, TextInput } from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
 import { FlashList } from "@shopify/flash-list";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { SwipeToDelete } from "../../src/SwipeToDelete";
-import { ActivityRow } from "../../src/ActivityRow";
 
-import {
-    initDb,
-    getActivitiesForUser,
-    deleteActivity,
-    deleteAllActivitiesForUser,
-    Activity,
-} from "../../src/db";
+import type { WorkoutLog } from "../../src/workouts/logTypes";
+import { getWorkoutLogsForUser, searchWorkoutLogsForUser } from "../../src/workouts/logs";
 
-export default function UserDetail() {
+function formatDate(ts: any) {
+    // ts can be Firestore Timestamp or undefined
+    try {
+        const d = ts?.toDate?.() ?? new Date();
+        return d.toLocaleDateString();
+    } catch {
+        return "";
+    }
+}
+
+export default function UserProfileScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const userId = Number(id);
+    const uid = String(id);
 
-    const [activities, setActivities] = useState<Activity[]>([]);
+    const [logs, setLogs] = useState<WorkoutLog[]>([]);
+    const [q, setQ] = useState("");
+    const [loading, setLoading] = useState(false);
 
-    const refresh = React.useCallback(() => {
-        setActivities(getActivitiesForUser(userId));
-    }, [userId]);
+    async function loadLatest() {
+        setLoading(true);
+        try {
+            const res = await getWorkoutLogsForUser(uid, 50);
+            setLogs(res);
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
-        initDb();
-        refresh();
-    }, [refresh]);
+        loadLatest();
+    }, [uid]);
 
-    useFocusEffect(
-        React.useCallback(() => {
-            refresh();
-        }, [refresh])
-    );
+    useEffect(() => {
+        const t = q.trim();
+        if (!t) {
+            loadLatest();
+            return;
+        }
+
+        let cancelled = false;
+        setLoading(true);
+        (async () => {
+            try {
+                const res = await searchWorkoutLogsForUser(uid, t, 25);
+                if (!cancelled) setLogs(res);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [q, uid]);
 
     return (
-        <View style={styles.container}>
-            <Text style={styles.h1}>User #{userId}</Text>
+        <View style={styles.page}>
+            <View style={styles.headerRow}>
+                <Pressable onPress={() => router.back()} style={styles.backBtn}>
+                    <Text style={{ fontWeight: "900" }}>Back</Text>
+                </Pressable>
 
-            <Pressable
-                style={styles.primaryBtn}
-                onPress={() => router.push(`/user/${userId}/add-activity`)}
-            >
-                <Text style={styles.primaryText}>Add activity</Text>
-            </Pressable>
-
-            <Pressable
-                style={styles.secondaryBtn}
-                onPress={() => {
-                    deleteAllActivitiesForUser(userId);
-                    refresh();
-                }}
-            >
-                <Text style={styles.secondaryText}>Delete All Activities</Text>
-            </Pressable>
-
-            <Pressable style={styles.linkBtn} onPress={() => router.back()}>
-                <Text style={styles.linkText}>Go back</Text>
-            </Pressable>
-
-            <View style={{ flex: 1, marginTop: 14 }}>
-                <FlashList
-                    data={activities}
-                    keyExtractor={(a) => String(a.id)}
-                    renderItem={({ item }) => (
-                        <SwipeToDelete
-                            onDelete={() => {
-                                deleteActivity(item.id);
-                                refresh();
-                            }}
-                        >
-                            <ActivityRow
-                                a={item}
-                                onPress={() => router.push(`/user/${userId}/edit-activity/${item.id}`)}
-
-                                onDelete={() => {
-                                    deleteActivity(item.id);
-                                    refresh();
-                                }}
-                            />
-                        </SwipeToDelete>
-                    )}
-
-                    ListEmptyComponent={
-                        <Text style={styles.empty}>No activities yet. Add one 👇</Text>
-                    }
-                />
+                <Text style={styles.h1}>User Profile</Text>
             </View>
+
+            <Text style={styles.sub}>Workout logs</Text>
+
+            <TextInput
+                value={q}
+                onChangeText={setQ}
+                placeholder="Search this user's logs (e.g. bench, curl)..."
+                autoCapitalize="none"
+                style={styles.input}
+            />
+
+            <FlashList
+                data={logs}
+                keyExtractor={(l) => l.id}
+                renderItem={({ item }) => (
+                    <View style={styles.row}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.exercise}>{item.exerciseName}</Text>
+                            <Text style={styles.meta}>
+                                {item.sets} sets × {item.reps} reps
+                                {typeof item.weight === "number" ? ` • ${item.weight} lb` : ""}
+                            </Text>
+                            {item.notes ? <Text style={styles.notes}>{item.notes}</Text> : null}
+                        </View>
+                        <Text style={styles.date}>{formatDate(item.createdAt)}</Text>
+                    </View>
+                )}
+                ListEmptyComponent={
+                    <Text style={styles.empty}>
+                        {loading ? "Loading…" : "No workout logs yet."}
+                    </Text>
+                }
+                contentContainerStyle={{ paddingBottom: 18 }}
+            />
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 16, paddingTop: 50, backgroundColor: "#F3F4F6" },
-    h1: { fontSize: 28, fontWeight: "900", marginBottom: 14, color: "#111827" },
-    primaryBtn: {
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: "center",
-        backgroundColor: "#111827",
-        marginBottom: 10,
-    },
-    primaryText: { color: "white", fontWeight: "900" },
-    secondaryBtn: {
-        paddingVertical: 12,
-        borderRadius: 12,
-        alignItems: "center",
+    page: { flex: 1, backgroundColor: "#F3F4F6", paddingHorizontal: 16, paddingTop: 18 },
+    headerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 },
+    backBtn: {
         backgroundColor: "white",
         borderWidth: 1,
         borderColor: "#E5E7EB",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 12,
     },
-    secondaryText: { fontWeight: "900", color: "#111827" },
-    linkBtn: { marginTop: 10, alignItems: "center" },
-    linkText: { fontWeight: "800", opacity: 0.8 },
-    empty: { marginTop: 18, opacity: 0.7, color: "#111827" },
+    h1: { fontSize: 22, fontWeight: "900", color: "#0F172A" },
+    sub: { fontSize: 14, fontWeight: "800", color: "#0F172A", opacity: 0.8, marginBottom: 10 },
+
+    input: {
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        paddingHorizontal: 14,
+        paddingVertical: 12,
+        marginBottom: 12,
+    },
+
+    row: {
+        backgroundColor: "white",
+        borderWidth: 1,
+        borderColor: "#E5E7EB",
+        borderRadius: 16,
+        padding: 12,
+        marginBottom: 10,
+        flexDirection: "row",
+        gap: 12,
+    },
+    exercise: { fontWeight: "900", color: "#0F172A" },
+    meta: { marginTop: 4, opacity: 0.75 },
+    notes: { marginTop: 6, opacity: 0.8 },
+    date: { opacity: 0.6, fontWeight: "800" },
+    empty: { paddingVertical: 16, opacity: 0.7 },
 });

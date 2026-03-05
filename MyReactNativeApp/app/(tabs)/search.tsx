@@ -3,17 +3,19 @@ import { View, Text, TextInput, StyleSheet, Pressable, Alert } from "react-nativ
 import { FlashList } from "@shopify/flash-list";
 import { router } from "expo-router";
 
-// workouts
-import { EXERCISE_DB } from "../../src/workouts/exerciseDb";
 import { searchApiNinjas } from "../../src/workouts/apiNinjas";
-import { attachGifUrls } from "../../src/workouts/attachGifs";
 import type { WorkoutResult } from "../../src/workouts/types";
-import { WorkoutRow } from "../../app/workout/WorkoutRow"; // Update the path to the correct location
+import { WorkoutRow } from "../../app/workout/WorkoutRow";
+import { usePosts } from "../../src/PostsContext";
+import { FeedCard } from "../../src/FeedCard";
 
-// users placeholder
-import { SEARCH_USERS } from "../../src/searchUsers";
+// Ensure USERS is exported from this file
+export const USERS = [
+    { id: 1, username: "user1", name: "User One" },
+    { id: 2, username: "user2", name: "User Two" },
+];
 
-type Mode = "users" | "workouts";
+type Mode = "users" | "workouts" | "posts";
 
 function useDebouncedValue<T>(value: T, delayMs: number) {
     const [debounced, setDebounced] = useState(value);
@@ -29,14 +31,20 @@ export default function SearchTab() {
     const [q, setQ] = useState("");
     const dq = useDebouncedValue(q, 250);
 
+    // workouts
     const [workouts, setWorkouts] = useState<WorkoutResult[]>([]);
     const [loading, setLoading] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
 
+    // posts
+    const { searchPosts, toggleFavorite, isFavorite } = usePosts();
+    const [posts, setPosts] = useState<any[]>([]);
+    const [postLoading, setPostLoading] = useState(false);
+
     const filteredUsers = useMemo(() => {
         const s = dq.trim().toLowerCase();
-        if (!s) return SEARCH_USERS;
-        return SEARCH_USERS.filter((u) => u.username?.toLowerCase().includes(s));
+        if (!s) return USERS;
+        return USERS.filter((u: any) => u.username?.toLowerCase().includes(s));
     }, [dq]);
 
     useEffect(() => {
@@ -58,9 +66,7 @@ export default function SearchTab() {
             try {
                 const apiResults = await searchApiNinjas({ name }, ac.signal);
                 if (ac.signal.aborted) return;
-
-                const withGifs = attachGifUrls(apiResults, EXERCISE_DB);
-                setWorkouts(withGifs);
+                setWorkouts(apiResults);
             } catch (e: any) {
                 if (ac.signal.aborted) return;
                 Alert.alert("Workout search failed", e?.message ?? "Unknown error");
@@ -73,27 +79,43 @@ export default function SearchTab() {
         return () => ac.abort();
     }, [dq, mode]);
 
+    useEffect(() => {
+        if (mode !== "posts") return;
+
+        const text = dq.trim();
+        if (!text) {
+            setPosts([]);
+            return;
+        }
+
+        setPostLoading(true);
+        (async () => {
+            try {
+                const res = await searchPosts(text);
+                setPosts(res);
+            } catch (e: any) {
+                Alert.alert("Post search failed", e?.message ?? "Unknown error");
+            } finally {
+                setPostLoading(false);
+            }
+        })();
+    }, [dq, mode, searchPosts]);
+
     return (
         <View style={styles.page}>
             <Text style={styles.h1}>Search</Text>
 
             <View style={styles.segmentRow}>
-                <Pressable
-                    onPress={() => setMode("users")}
-                    style={[styles.segment, mode === "users" && styles.segmentActive]}
-                >
-                    <Text style={[styles.segmentText, mode === "users" && styles.segmentTextActive]}>
-                        Users
-                    </Text>
+                <Pressable onPress={() => setMode("users")} style={[styles.segment, mode === "users" && styles.segmentActive]}>
+                    <Text style={[styles.segmentText, mode === "users" && styles.segmentTextActive]}>Users</Text>
                 </Pressable>
 
-                <Pressable
-                    onPress={() => setMode("workouts")}
-                    style={[styles.segment, mode === "workouts" && styles.segmentActive]}
-                >
-                    <Text style={[styles.segmentText, mode === "workouts" && styles.segmentTextActive]}>
-                        Workouts
-                    </Text>
+                <Pressable onPress={() => setMode("workouts")} style={[styles.segment, mode === "workouts" && styles.segmentActive]}>
+                    <Text style={[styles.segmentText, mode === "workouts" && styles.segmentTextActive]}>Workouts</Text>
+                </Pressable>
+
+                <Pressable onPress={() => setMode("posts")} style={[styles.segment, mode === "posts" && styles.segmentActive]}>
+                    <Text style={[styles.segmentText, mode === "posts" && styles.segmentTextActive]}>Posts</Text>
                 </Pressable>
             </View>
 
@@ -103,7 +125,9 @@ export default function SearchTab() {
                 placeholder={
                     mode === "users"
                         ? "Search usernames..."
-                        : "Search exercises (bench, curl, run)..."
+                        : mode === "workouts"
+                            ? "Search exercises (bench, curl, run)..."
+                            : "Search post captions..."
                 }
                 style={styles.input}
                 autoCapitalize="none"
@@ -112,32 +136,31 @@ export default function SearchTab() {
             {mode === "users" ? (
                 <FlashList
                     data={filteredUsers}
-                    keyExtractor={(u) => String(u.id)}
-                    estimatedItemSize={72}
-                    renderItem={({ item }) => (
+                    keyExtractor={(u: any) => String(u.id)}
+                    renderItem={({ item }: any) => (
                         <Pressable
-                            onPress={() => router.push(`/user-profile/${item.id}`)}
+                            onPress={() => router.push(`/user/${item.id}`)}
                             style={({ pressed }) => [styles.userRow, pressed && { opacity: 0.92 }]}
                         >
-                            <Text style={{ fontWeight: "900" }}>@{item.username}</Text>
+                            <Text style={{ fontWeight: "900" }}>{item.username}</Text>
+                            <Text style={{ opacity: 0.7 }}>{item.name}</Text>
                         </Pressable>
                     )}
                     ListEmptyComponent={<Text style={styles.empty}>No users found.</Text>}
                     contentContainerStyle={{ paddingBottom: 16 }}
                 />
-            ) : (
+            ) : mode === "workouts" ? (
                 <FlashList
                     data={workouts}
-                    keyExtractor={(w) => w.id}
-                    estimatedItemSize={86}
-                    renderItem={({ item }) => (
+                    keyExtractor={(w: any) => w.name + w.muscle + w.type}
+                    renderItem={({ item }: any) => (
                         <WorkoutRow
                             w={item}
                             onPress={() =>
                                 router.push({
-                                    pathname: "/workout/[id]", // ✅ correct for app/workout/[id].tsx
+                                    pathname: "/workout/[id]",
                                     params: {
-                                        id: item.id,
+                                        id: item.name,
                                         name: item.name,
                                         type: item.type,
                                         muscle: item.muscle,
@@ -145,17 +168,27 @@ export default function SearchTab() {
                                         equipments: JSON.stringify(item.equipments ?? []),
                                         instructions: item.instructions ?? "",
                                         safety_info: item.safety_info ?? "",
-                                        gifUrl: item.gifUrl ?? "",
                                     },
                                 })
                             }
                         />
                     )}
-                    ListEmptyComponent={
-                        <Text style={styles.empty}>
-                            {loading ? "Searching…" : "Type to search workouts…"}
-                        </Text>
-                    }
+                    ListEmptyComponent={<Text style={styles.empty}>{loading ? "Searching…" : "Type to search workouts…"}</Text>}
+                    contentContainerStyle={{ paddingBottom: 16 }}
+                />
+            ) : (
+                <FlashList
+                    data={posts}
+                    keyExtractor={(p: any) => p.id}
+                    renderItem={({ item }: any) => (
+                        <FeedCard
+                            imageUrl={item.imageUrl}
+                            caption={item.caption}
+                            favorited={isFavorite(item.id)}
+                            onDoubleTap={() => toggleFavorite(item.id)}
+                        />
+                    )}
+                    ListEmptyComponent={<Text style={styles.empty}>{postLoading ? "Searching…" : "Type to search posts…"}</Text>}
                     contentContainerStyle={{ paddingBottom: 16 }}
                 />
             )}
@@ -178,7 +211,7 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     segmentActive: { backgroundColor: "#0F172A", borderColor: "#0F172A" },
-    segmentText: { fontSize: 16, fontWeight: "800", color: "#0F172A" },
+    segmentText: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
     segmentTextActive: { color: "white" },
 
     input: {

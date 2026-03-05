@@ -1,14 +1,39 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from "react-native";
 import { router } from "expo-router";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../src/firebase";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  function signIn() {
-    // No real auth yet (Step 2). Just route into the logged-in app.
-    router.replace("/(tabs)/home");
+  async function login() {
+    const e = email.trim();
+    if (!e || !password) {
+      Alert.alert("Missing info", "Enter email and password.");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await signInWithEmailAndPassword(auth, e, password);
+      router.replace("/(tabs)/home");
+    } catch (err: any) {
+      Alert.alert("Login failed", err?.message ?? "Unknown error");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -18,7 +43,7 @@ export default function LoginScreen() {
     >
       <View style={styles.container}>
         <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to continue</Text>
+        <Text style={styles.subtitle}>Log in to continue</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Email</Text>
@@ -43,8 +68,8 @@ export default function LoginScreen() {
             style={styles.input}
           />
 
-          <Pressable onPress={signIn} style={styles.primaryBtn}>
-            <Text style={styles.primaryText}>Sign In</Text>
+          <Pressable onPress={login} style={styles.primaryBtn} disabled={busy}>
+            <Text style={styles.primaryText}>{busy ? "Logging in…" : "Login"}</Text>
           </Pressable>
 
           <Pressable onPress={() => router.push("/(auth)/register")} style={styles.linkBtn}>
@@ -57,19 +82,11 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "center",
-  },
+  container: { flex: 1, padding: 20, justifyContent: "center" },
   title: { fontSize: 34, fontWeight: "900", color: "white" },
   subtitle: { marginTop: 6, fontSize: 16, color: "#CBD5E1", marginBottom: 18 },
 
-  card: {
-    backgroundColor: "white",
-    borderRadius: 18,
-    padding: 18,
-  },
+  card: { backgroundColor: "white", borderRadius: 18, padding: 18 },
   label: { fontSize: 13, fontWeight: "800", color: "#0F172A" },
   input: {
     marginTop: 8,
@@ -89,7 +106,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryText: { color: "white", fontSize: 16, fontWeight: "900" },
-
   linkBtn: { marginTop: 14, alignItems: "center" },
   linkText: { fontSize: 14, fontWeight: "800", color: "#0F172A", opacity: 0.85 },
 });
