@@ -16,23 +16,25 @@ import { auth } from "../../src/firebase";
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function login() {
-    const e = email.trim();
-    if (!e || !password) {
-      Alert.alert("Missing info", "Enter email and password.");
+    const e = email.trim().toLowerCase();
+    const p = password;
+
+    if (!e.includes("@")) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
     }
 
     try {
-      setBusy(true);
-      await signInWithEmailAndPassword(auth, e, password);
+      setLoading(true);
+      await signInWithEmailAndPassword(auth, e, p);
       router.replace("/(tabs)/home");
     } catch (err: any) {
       Alert.alert("Login failed", err?.message ?? "Unknown error");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
@@ -68,8 +70,12 @@ export default function LoginScreen() {
             style={styles.input}
           />
 
-          <Pressable onPress={login} style={styles.primaryBtn} disabled={busy}>
-            <Text style={styles.primaryText}>{busy ? "Logging in…" : "Login"}</Text>
+          <Pressable
+            onPress={login}
+            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.92 }]}
+            disabled={loading}
+          >
+            <Text style={styles.primaryText}>{loading ? "Logging in..." : "Login"}</Text>
           </Pressable>
 
           <Pressable onPress={() => router.push("/(auth)/register")} style={styles.linkBtn}>

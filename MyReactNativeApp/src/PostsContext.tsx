@@ -1,8 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { Post } from "./posts";
-import { INITIAL_POSTS } from "./posts";
-import { auth, db } from "./firebase";
-import { onAuthStateChanged } from "firebase/auth";
+// src/PostsContext.tsx
+ import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged, User } from "firebase/auth";
 import {
   collection,
   doc,
@@ -11,57 +9,69 @@ import {
   query,
   setDoc,
   deleteDoc,
-  addDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { auth, db } from "./firebase";
 
-type PostsCtx = {
-  posts: Post[];
-  favoriteIds: Set<string>;
-  favoritePosts: Post[];
-  addPost: (p: { imageUrl: string; caption: string }) => Promise<void>;
-  toggleFavorite: (postId: string) => Promise<void>;
-  isFavorite: (postId: string) => boolean;
+export type Post = {
+  id: string;
+  userId: string;
+  imageUrl: string;
+  caption?: string;
+  createdAt?: any;
 };
 
-const Ctx = createContext<PostsCtx | null>(null);
+type PostsContextValue = {
+  user: User | null;
+  uid: string | null;
+  posts: Post[];
+  favoriteIds: Set<string>;
+  toggleFavorite: (postId: string) => Promise<void>;
+  addPost: (input: { imageUrl: string; caption?: string }) => Promise<void>;
+};
+
+const PostsContext = createContext<PostsContextValue | null>(null);
+
+export function usePosts() {
+  const ctx = useContext(PostsContext);
+  if (!ctx) throw new Error("usePosts must be used within <PostsProvider />");
+  return ctx;
+}
 
 export function PostsProvider({ children }: { children: React.ReactNode }) {
-  const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-  const [uid, setUid] = useState<string | null>(null);
-  const [authReady, setAuthReady] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const uid = user?.uid ?? null;
 
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  // Auth listener
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
-      setUid(u?.uid ?? null);
-      setAuthReady(true);
-      console.log("AUTH UID (PostsContext):", u?.uid ?? "none");
+      console.log("AUTH STATE:", u ? "signed in" : "signed out");
+      setUser(u);
     });
     return unsub;
   }, []);
 
+  // Posts feed listener (ONLY when signed in)
   useEffect(() => {
-    if (!authReady || !uid) {
+    console.log("AUTH UID (PostsContext):", uid ?? "none");
+
+    // If signed out, do NOT subscribe (rules require signedIn()).
+    if (!uid) {
       setPosts([]);
       return;
     }
 
-    const qPosts = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
     const unsub = onSnapshot(
-      qPosts,
+      q,
       (snap) => {
-        const next: Post[] = snap.docs.map((d) => {
-          const data = d.data() as any;
-          return {
-            id: d.id,
-            imageUrl: data.imageUrl ?? "",
-            caption: data.caption ?? "",
-            createdAt: data.createdAt?.toDate?.()?.toISOString?.() ?? new Date().toISOString(),
-            favorited: false,
-          };
-        });
+        const next: Post[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<Post, "id">),
+        }));
         setPosts(next);
       },
       (error) => {
@@ -71,8 +81,9 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
     );
 
     return unsub;
-  }, [authReady, uid]);
+  }, [uid]);
 
+  // Favorites listener (ONLY when signed in)
   useEffect(() => {
     if (!uid) {
       setFavoriteIds(new Set());
@@ -80,13 +91,12 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
     }
 
     const favCol = collection(db, "favorites", uid, "posts");
-
     const unsub = onSnapshot(
       favCol,
       (snap) => {
-        const ids = new Set<string>();
-        snap.docs.forEach((d) => ids.add(d.id));
-        setFavoriteIds(ids);
+        const s = new Set<string>();
+        snap.forEach((d) => s.add(d.id));
+        setFavoriteIds(s);
       },
       (error) => {
         console.error("Favorites snapshot error:", error);
@@ -97,54 +107,42 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
     return unsub;
   }, [uid]);
 
-  const favoritePosts = useMemo(() => posts.filter((p) => favoriteIds.has(p.id)), [posts, favoriteIds]);
+  async function toggleFavorite(postId: string) {
+    if (!uid) throw new Error("Must be signed in to favorite posts.");
+    const ref = doc(db, "favorites", uid, "posts", postId);
 
-  async function addPost(p: { imageUrl: string; caption: string }) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not signed in");
+    if (favoriteIds.has(postId)) {
+      await deleteDoc(ref);
+    } else {
+      await setDoc(ref, { createdAt: serverTimestamp() }, { merge: true });
+    }
+  }
 
+  async function addPost(input: { imageUrl: string; caption?: string }) {
+    if (!uid) throw new Error("Must be signed in to create posts.");
+
+    // If you already have an add-post flow elsewhere, keep using it.
+    // This is a minimal safe example.
+    const { addDoc } = await import("firebase/firestore");
     await addDoc(collection(db, "posts"), {
-      userId: user.uid,
-      imageUrl: p.imageUrl,
-      caption: p.caption,
+      userId: uid,
+      imageUrl: input.imageUrl,
+      caption: input.caption ?? "",
       createdAt: serverTimestamp(),
     });
   }
 
-  async function toggleFavorite(postId: string) {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not signed in");
-
-    const favDoc = doc(db, "favorites", user.uid, "posts", postId);
-
-    if (favoriteIds.has(postId)) {
-      await deleteDoc(favDoc);
-    } else {
-      await setDoc(favDoc, { createdAt: serverTimestamp() });
-    }
-  }
-
-  function isFavorite(postId: string) {
-    return favoriteIds.has(postId);
-  }
-
   const value = useMemo(
     () => ({
-      posts: posts.map((p) => ({ ...p, favorited: favoriteIds.has(p.id) })),
+      user,
+      uid,
+      posts,
       favoriteIds,
-      favoritePosts,
-      addPost,
       toggleFavorite,
-      isFavorite,
+      addPost,
     }),
-    [posts, favoriteIds, favoritePosts]
+    [user, uid, posts, favoriteIds]
   );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
-
-export function usePosts() {
-  const ctx = useContext(Ctx);
-  if (!ctx) throw new Error("usePosts must be used inside PostsProvider");
-  return ctx;
+  return <PostsContext.Provider value={value}>{children}</PostsContext.Provider>;
 }

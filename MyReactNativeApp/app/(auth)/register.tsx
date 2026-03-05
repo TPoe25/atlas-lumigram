@@ -16,27 +16,29 @@ import { auth } from "../../src/firebase";
 export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   async function createAccount() {
-    const e = email.trim();
-    if (!e || !password) {
-      Alert.alert("Missing info", "Enter email and password.");
+    const e = email.trim().toLowerCase();
+    const p = password;
+
+    if (!e.includes("@")) {
+      Alert.alert("Invalid email", "Please enter a valid email address.");
       return;
     }
-    if (password.length < 6) {
+    if (p.length < 6) {
       Alert.alert("Weak password", "Password must be at least 6 characters.");
       return;
     }
 
     try {
-      setBusy(true);
-      await createUserWithEmailAndPassword(auth, e, password);
+      setLoading(true);
+      await createUserWithEmailAndPassword(auth, e, p);
       router.replace("/(tabs)/home");
     } catch (err: any) {
-      Alert.alert("Register failed", err?.message ?? "Unknown error");
+      Alert.alert("Sign up failed", err?.message ?? "Unknown error");
     } finally {
-      setBusy(false);
+      setLoading(false);
     }
   }
 
@@ -72,8 +74,12 @@ export default function RegisterScreen() {
             style={styles.input}
           />
 
-          <Pressable onPress={createAccount} style={styles.primaryBtn} disabled={busy}>
-            <Text style={styles.primaryText}>{busy ? "Creating…" : "Create Account"}</Text>
+          <Pressable
+            onPress={createAccount}
+            style={({ pressed }) => [styles.primaryBtn, pressed && { opacity: 0.92 }]}
+            disabled={loading}
+          >
+            <Text style={styles.primaryText}>{loading ? "Creating..." : "Create Account"}</Text>
           </Pressable>
 
           <Pressable onPress={() => router.push("/(auth)/login")} style={styles.linkBtn}>
