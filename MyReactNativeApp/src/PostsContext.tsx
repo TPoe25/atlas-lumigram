@@ -30,16 +30,23 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
   const [posts, setPosts] = useState<Post[]>(INITIAL_POSTS);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [uid, setUid] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUid(u?.uid ?? null);
+      setAuthReady(true);
       console.log("AUTH UID (PostsContext):", u?.uid ?? "none");
     });
     return unsub;
   }, []);
 
   useEffect(() => {
+    if (!authReady || !uid) {
+      setPosts([]);
+      return;
+    }
+
     const qPosts = query(collection(db, "posts"), orderBy("createdAt", "desc"));
 
     const unsub = onSnapshot(
@@ -64,7 +71,7 @@ export function PostsProvider({ children }: { children: React.ReactNode }) {
     );
 
     return unsub;
-  }, []);
+  }, [authReady, uid]);
 
   useEffect(() => {
     if (!uid) {

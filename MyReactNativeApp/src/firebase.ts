@@ -1,9 +1,8 @@
-import { initializeApp } from "firebase/app";
+// src/firebase.ts
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-
-import { initializeAuth, getReactNativePersistence } from "firebase/auth";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -14,12 +13,22 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+function assertEnv(name: keyof typeof firebaseConfig) {
+  if (!firebaseConfig[name]) {
+    throw new Error(
+      `Missing ${name}. Did you set EXPO_PUBLIC_FIREBASE_* in .env and restart Expo?`
+    );
+  }
+}
 
+assertEnv("apiKey");
+assertEnv("authDomain");
+assertEnv("projectId");
+assertEnv("storageBucket");
+assertEnv("messagingSenderId");
+assertEnv("appId");
+
+export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-
-// ✅ Works in Expo/React Native without importing firebase/auth/react-native
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+export const auth = getAuth(app);

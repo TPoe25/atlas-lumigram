@@ -5,7 +5,7 @@ import { auth } from "../src/firebase";
 import { PostsProvider } from "../src/PostsContext";
 
 function isAuthRoute(pathname: string) {
-  return pathname.startsWith("/(auth)");
+  return pathname === "/login" || pathname === "/register";
 }
 
 export default function RootLayout() {

@@ -1,24 +1,20 @@
-// app/_layout.tsx
-import { Stack } from "expo-router";
-import { useEffect, useState } from "react";
-import { onAuthStateChanged, signInAnonymously } from "firebase/auth";
-import { auth } from "../../src/firebase";
+import { Tabs } from "expo-router";
 
-export default function RootLayout() {
-  const [ready, setReady] = useState(false);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) await signInAnonymously(auth);
-      } finally {
-        setReady(true);
-      }
-    });
-    return unsub;
-  }, []);
-
-  if (!ready) return null; // or a splash/loading view
-
-  return <Stack screenOptions={{ headerShown: false }} />;
+export default function TabsLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerTitleAlign: "center",
+        tabBarActiveTintColor: "#0F172A",
+        tabBarInactiveTintColor: "#9CA3AF",
+        tabBarLabelStyle: { fontWeight: "700" },
+      }}
+    >
+      <Tabs.Screen name="home" options={{ title: "Home" }} />
+      <Tabs.Screen name="search" options={{ title: "Search" }} />
+      <Tabs.Screen name="add-post" options={{ title: "Add Post" }} />
+      <Tabs.Screen name="favorites" options={{ title: "Favorites" }} />
+      <Tabs.Screen name="profile" options={{ title: "My Profile" }} />
+    </Tabs>
+  );
 }
